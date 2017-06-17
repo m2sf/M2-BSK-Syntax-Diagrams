@@ -717,32 +717,38 @@ lappend non_terminals ordinalType {
 
 # (48) Designator
 lappend non_terminals designator {
-  line qualident {optx designatorTail}
+  line ident {optx designatorTail}
 }
 
-# (48.1) Designator Tail
+# (48.1) Designator Tail CORRECTED
 lappend non_terminals designatorTail {
-  line {
-    loop {
-      line {
-        or
-          {line [ exprListOrSlice ]}
-          ^
-      }
-      {optx {loop {line . ident} nil}}
-    }
-  }
+  or
+    {line {or deref fieldSelector} {optx designatorTail}}
+    subscriptOrSlice
 }
 
-# (48.2) Expression List Or Slice
-lappend non_terminals exprListOrSlice {
-  line expression {
-    optx {
-      or
-        {loop {line , expression} nil}
-        {line .. {optx expression}}
+# (48.2) Subscript Or Slice
+lappend non_terminals subscriptOrSlice {
+  line [ expression {
+    or
+      {line ] {optx designatorTail}}
+      {line .. {optx expression} ]}
     }
-  }
+}
+
+# (48.3) Deref
+lappend non_terminals deref {
+  line ^
+}
+
+# (48.4) Field Selector
+lappend non_terminals fieldSelector {
+  line . ident
+}
+
+# (48.2) Expression Or Slice
+lappend non_terminals exprOrSlice {
+  line expression {optx .. {optx expression}}
 }
 
 # (49) Expression List
@@ -1294,7 +1300,7 @@ lappend terminals LetterOrDigit {
 lappend terminals ForeignIdent {
   or
     {line $ {loop LetterOrDigit nil} {loop nil ForeignIdentTail}}
-    {line Ident {loop ForeignIdentTail nil}}
+    {line StdIdent {loop ForeignIdentTail nil}}
 }
 
 # (4.1) Foreign Identifier Tail
@@ -1524,7 +1530,7 @@ lappend pragmas pragmaBody {
 
 # (15) Body Of Foreign Function Interface Pragma
 lappend pragmas ffiPragma {
-  line FFI = {or `C `Fortran `CLR `JVM }
+  line FFI = {or `C `CLR `JVM }
 }
 
 # (16) Body Of Foreign Function Identifier Mapping Pragma
