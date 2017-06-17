@@ -77,14 +77,14 @@ ident :=
 /* Qualified Identifier */
 
 qualident :=
-  Ident ( '.' Ident )*
+  ident ( '.' ident )*
   ;
 
 
 /* Identifier List */
 
 identList :=
-  Ident ( ',' Ident )*
+  ident ( ',' ident )*
   ;
 
 
@@ -257,7 +257,7 @@ castingFormalType :=
   CAST ( BARE ARRAY OF OCTET | addressTypeIdent )
   ;
 
-/* Address Type Ident */
+/* Address Type Identifier */
 
 addressTypeIdent :=
   ( UNSAFE '.' )? ADDRESS
@@ -381,7 +381,7 @@ wildcardAliasDecl :=
 /* Type Declaration */
 
 typeDeclaration :=
-  Ident '=' ( indeterminateType |  type )
+  ident '=' ( indeterminateType |  type )
   ;
 
 /* Indeterminate Type */
@@ -615,31 +615,29 @@ alias ordinalType = typeIdent ;
 /* Designator */
 
 designator :=
-  qualident designatorTail?
+  ident designatorTail?
   ;
 
 /* Designator Tail */
 
 designatorTail :=
-  ( ( '[' exprListOrSlice ']' | '^' ) ( '.' ident )* )+
+  ( deref | fieldSelector ) designatorTail? | subscriptOrSlice
   ;
 
-/* Expression List Or Slice */
+/* Dereference */
 
-exprListOrSlice :=
-  expression ( exprListTail | sliceTail )?
+alias deref := '^' ;
+
+/* Field Selector */
+
+fieldSelector :=
+  '.' ident
   ;
 
-/* Expression List Tail */
+/* Subscript Or Slice */
 
-exprListTail :=
-  ( ',' expression )+
-  ;
-
-/* Slice Tail */
-
-sliceTail :=
-  '..' expression?
+subscriptOrSlice :=
+  '[' expression ( ']' designatorTail? | '..' expression? ']' )
   ;
 
 
@@ -749,7 +747,7 @@ alias runtimeExpression = expression ;
 
 /* Identifier */
 
-Ident :=
+StdIdent :=
   Letter ( Letter | Digit )*
   ;
 
@@ -757,7 +755,7 @@ Ident :=
 
 ForeignIdent :=
   '$' ( Letter | Digit ) ForeignIdentTail* |
-  Ident ForeignIdentTail+
+  StdIdent ForeignIdentTail+
   ;
 
 /* Foreign Identifier Tail */
