@@ -27,10 +27,10 @@ grammar m2bsk;
 /* * *   R e s e r v e d   W o r d s   * * */
 
 reserved
-  ALIAS, AND, ARGLIST, ARRAY, BARE, BEGIN, CASE, CONST, DEFINITION, DIV, DO,
-  ELSE, ELSIF, END, EXIT, FOR, IF, IMPLEMENTATION, IMPORT, IN, LOOP, MOD,
-  MODULE, NEW, NOT, OF, OPAQUE, OR, POINTER, PROCEDURE, RECORD, RELEASE,
-  REPEAT, RETURN, SET, THEN, TO, TYPE, UNTIL, VAR, WHILE;
+  ALIAS, AND, ARGLIST, ARRAY, BEGIN, CASE, CONST, DEFINITION, DIV, DO, ELSE,
+  ELSIF, END, EXIT, FOR, IF, IMPLEMENTATION, IMPORT, IN, LOOP, MOD, MODULE,
+  NEW, NOT, OF, OPAQUE, OR, POINTER, PROCEDURE, READ, RECORD, RELEASE,
+  REPEAT, RETURN, SET, THEN, TO, TYPE, UNTIL, VAR, WHILE, WRITE;
 
 
 /* * *   N o n - T e r m i n a l   S y m b o l s   * * */
@@ -236,7 +236,7 @@ procedureType :=
 /* Formal Type */
 
 formalType :=
-  nonAttrFormalType | attributedFormalType
+  ( CONST | VAR )? nonAttrFormalType
   ;
 
 /* Returned Type */
@@ -245,36 +245,36 @@ alias returnedType = typeIdent ;
 
 
 /* Non-Attributed Formal Type */
-
 nonAttrFormalType :=
-  ( ARRAY ident? OF )? typeIdent | castingFormalType
+  simpleFormalType | castingFormalType | variadicFormalType
+  ;
+
+
+/* Simple Formal Type */
+
+simpleFormalType :=
+  ( ARRAY OF | '[]' OF )? typeIdent
   ;
 
 
 /* Casting Formal Type */
 
 castingFormalType :=
-  CAST ( BARE ARRAY OF OCTET | addressTypeIdent )
-  ;
-
-/* Address Type Identifier */
-
-addressTypeIdent :=
-  ( UNSAFE '.' )? ADDRESS
+  CAST ( '[]' OF OCTET | ADDRESS )
   ;
 
 
-/* Attributed Formal Type */
+/* Variadic Formal Type */
 
-attributedFormalType :=
-  ( CONST | VAR ) ( nonAttrFormalType | simpleVariadicFormalType )
+variadicFormalType :=
+  ARGLIST OF ( formalCharArray | typeIdent )
   ;
 
 
-/* Simple Variadic Formal Type */
+/* Formal Character Array */
 
-simpleVariadicFormalType :=
-  ARGLIST OF nonAttrFormalType
+formalCharArray :=
+  ARRAY OF ( CHAR | UNICHAR )
   ;
 
 
@@ -288,24 +288,14 @@ procedureHeader :=
 /* Procedure Signature */
 
 procedureSignature :=
-  ident ( '(' formalParams ( ';' formalParams )* ')' )?
-  ( ':' returnedType )?
+  ident ( '(' formalParams ( ';' formalParams )* ')' )? ( ':' returnedType )?
   ;
 
 
 /* Formal Parameters */
 
 formalParams :=
-  identList ':' ( nonAttrFormalType | simpleVariadicFormalType ) |
-  attributedFormalParams
-  ;
-
-
-/* Attributed Formal Parameters */
-
-attributedFormalParams :=
-  ( CONST | VAR ) identList ':'
-  ( nonAttrFormalType | simpleVariadicFormalType )
+  ( CONST | VAR )? identList ':' nonAttrFormalType
   ;
 
 
@@ -397,7 +387,7 @@ alias fieldDeclaration = varOrFieldDeclaration ;
 /* Indeterminate Field */
 
 indeterminateField :=
-  '+' ident ':' BARE ARRAY discriminantFieldIdent OF typeIdent 
+  '+' ident ':' '[' discriminantFieldIdent ']' OF typeIdent 
   ;
 
 /* Discriminant Field Identifier */
@@ -413,9 +403,8 @@ varOrFieldDeclaration :=
 
 /* Anonymous Type */
 
-  ARRAY valueCount OF typeIdent |
-  subrangeType |
-  procedureType
+anonType :=
+  ARRAY valueCount OF typeIdent | subrangeType | procedureType
   ;
 
 
@@ -430,8 +419,9 @@ statementSequence :=
 
 statement :=
   emptyStatement | memMgtOperation | updateOrProcCall | returnStatement |
-  ifStatement | caseStatement | loopStatement | whileStatement |
-  repeatStatement | forStatement | EXIT
+  copyStatement | readStatement | writeStateent | ifStatement |
+  caseStatement | loopStatement | whileStatement | repeatStatement |
+  forStatement | EXIT
   ;
 
 /* Empty Statement */
@@ -493,7 +483,7 @@ alias initSize = expression ;
 /* Update Or Procedure Call */
 
 updateOrProcCall :=
-  designator ( IncOrDecSuffix | ':=' expression | '(' expressionList ')' )?
+  designator ( IncOrDecSuffix | ':=' expression | '(' expressionList ')' )? |
   ;
 
 /* Increment Or Decrement Suffix */
@@ -506,6 +496,49 @@ updateOrProcCall :=
 returnStatement :=
   RETURN expression?
   ;
+
+
+/* COPY Statement */
+
+copyStatement :=
+  COPY designator ':=' expression
+  ;
+
+
+/* READ Statement */
+
+readStmt :=
+  READ ( '@' chan ':' )?
+  NEW? designator ( ',' designator )*
+  ;
+
+/* channel */
+
+alias chan = designator ;
+
+
+/* WRITE Statement */
+
+writeStmt :=
+  WRITE ( '@' chan ':' )?
+  outputArgs ( ',' outputArgs )*
+  ;
+
+/* Output Arguments */
+
+outputArgs :=
+  formattedArgs | unformattedArgs
+  ;
+
+/* Formatted Arguments */
+
+formattedArgs :=
+  '[' fmtStr, unformattedArgs ']'
+  ;
+
+/* Unformatted Arguments */
+
+alias unformattedArgs = expressionList ;
 
 
 /* IF Statement */
@@ -571,16 +604,13 @@ forStatement :=
 /* FOR Loop Variants */
 
 forLoopVariants :=
-  accessor ascOrDesc? ( ',' value )?
+  indexOrSoleValue ascOrDesc? ( ',' value )?
   ;
 
-/* Accessor */
+/* Index and Value */
 
-alias accessor = ident ;
+alias indexOrSoleValue, value = ident ;
 
-/* Value */
-
-alias value = ident ;
 
 /* Ascender Or Descender */
 
@@ -657,7 +687,7 @@ expression :=
 /* Level-1 Operator */
 
 .OperL1 :=
-  '=' | '#' | '<' | '<=' | '>' | '>=' | IN
+  '=' | '#' | '<' | '<=' | '>' | '>=' | '==' | IN
   ;
 
 
@@ -883,6 +913,7 @@ Whitespace :=
 LineComment :=
   '!' CommentCharacter* EndOfLine
   ;
+
 
 /* Block Comment */
 

@@ -345,44 +345,49 @@ lappend non_terminals procedureType {
 
 # (18.1) Formal Type
 lappend non_terminals formalType {
-  or nonAttrFormalType attributedFormalType
+  line {or nil CONST VAR} nonAttrFormalType
 }
 
-# (18.2) Returned Type
+# (18.2) Non-Attributed Formal Type
+lappend non_terminals nonAttrFormalType {
+  or simpleFormalType castingFormalType variadicFormalType
+}
+
+# (18.3) Returned Type
 lappend non_terminals returnedType {
   line typeIdent
 }
 
-# (19) Non-Attributed Formal Type
-lappend non_terminals nonAttrFormalType {
-  or
-    {line {optx ARRAY {optx ident} OF} typeIdent}
-    castingFormalType
+# (19) Simple Formal Type
+lappend non_terminals simpleFormalType {
+  line {
+    or
+      nil
+      {line ARRAY OF}
+      {line [] OF}
+  }
+  typeIdent
 }
 
-# (19.1) Casting Formal Type
+# (20) Casting Formal Type
 lappend non_terminals castingFormalType {
   line /CAST {
     or
-      {line BARE ARRAY OF /OCTET}
-      {line addressTypeIdent}
+      {line [] OF /OCTET}
+      /ADDRESS
     }
 }
 
-# (19.2) Address Type Ident
-lappend non_terminals addressTypeIdent {
-  line {optx /UNSAFE .} /ADDRESS
+# (22) Variadic Formal Type
+lappend non_terminals variadicFormalType {
+  line ARGLIST OF {or typeIdent formalCharArray}
 }
 
-# (20) Attributed Formal Type
-lappend non_terminals attributedFormalType {
-  line {or CONST VAR} {or nonAttrFormalType simpleVariadicFormalType}
+# (22.1) Formal Character Array
+lappend non_terminals formalCharArray {
+  line ARRAY OF {or /CHAR /UNICHAR}
 }
 
-# (22) Simple Variadic Formal Type
-lappend non_terminals simpleVariadicFormalType {
-  line ARGLIST OF nonAttrFormalType
-}
 
 # (24) Procedure Header
 lappend non_terminals procedureHeader {
@@ -396,15 +401,7 @@ lappend non_terminals procedureSignature {
 
 # (26) Formal Parameters
 lappend non_terminals formalParams {
-  or
-    {line identList : {or nonAttrFormalType simpleVariadicFormalType}}
-    attributedFormalParams
-}
-
-# (27) Attributed Formal Parameters
-lappend non_terminals attributedFormalParams {
-  line {or CONST VAR}
-    identList : {or nonAttrFormalType simpleVariadicFormalType}
+  line {or nil CONST VAR} identList : nonAttrFormalType
 }
 
 
@@ -491,7 +488,7 @@ lappend non_terminals indeterminateType {
 
 # (34.2) Indeterminate Field Declaration
 lappend non_terminals indeterminateField {
-  line + ident : BARE ARRAY discriminantFieldIdent OF typeIdent
+  line + ident : [ discriminantFieldIdent ] OF typeIdent
 }
 
 # (34.3) Discriminant Field Identifier
@@ -525,6 +522,9 @@ lappend non_terminals statement {
       memMgtOperation
       updateOrProcCall
       returnStatement
+      copyStatement
+      readStatement
+      writeStatement
       ifStatement
       caseStatement
       loopStatement
@@ -610,6 +610,48 @@ lappend non_terminals returnStatement {
   line RETURN {optx expression}
 }
 
+# (40.2) COPY Statement
+lappend non_terminals copyStatement {
+  line COPY designator := expression
+}
+
+# (X.1) READ Statement
+lappend non_terminals readStatement {
+  line READ {optx @ chan :}
+  {optx NEW} {loop designator ,}
+}
+
+# (X.1.1) Channel
+lappend non_terminals chan {
+  line designator
+}
+
+# (X.2) WRITE Statement
+lappend non_terminals writeStatement {
+  line WRITE {optx @ chan :}
+  {loop outputArgs ,}
+}
+
+# (X.2.1) Output Arguments
+lappend non_terminals outputArgs {
+  or formattedArgs unformattedArgs
+}
+
+# (X.2.2) Formatted Output Arguments
+lappend non_terminals formattedArgs {
+  line [ fmtStr , unformattedArgs ]
+}
+
+# (X.2.3) Format String
+lappend non_terminals fmtStr {
+  line expression
+}
+
+# (X.2.4) Unformatted Arguments
+lappend non_terminals unformattedArgs {
+  line expressionList
+}
+
 # (42) IF Statement
 lappend non_terminals ifStatement {
   stack
@@ -654,6 +696,13 @@ lappend non_terminals loopStatement {
 # (45) WHILE Statement
 lappend non_terminals whileStatement {
   line WHILE boolExpression DO statementSequence END
+}
+
+# (45) WHILE Statement 2
+lappend non_terminals whileStatement2 {
+  stack
+    {line WHILE boolExpression DO statementSequence}
+    {line {optx ELSE statementSequence} END}
 }
 
 # (46) REPEAT Statement
@@ -764,7 +813,7 @@ lappend non_terminals expression {
 # (50.1) Level-1 Operator
 lappend non_terminals operL1 {
   or
-    = # < <= > >= IN
+    = # < <= > >= == IN
 }
 
 # (51) Simple Expression
