@@ -245,6 +245,7 @@ alias returnedType = typeIdent ;
 
 
 /* Non-Attributed Formal Type */
+
 nonAttrFormalType :=
   simpleFormalType | castingFormalType | variadicFormalType
   ;
