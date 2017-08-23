@@ -254,7 +254,7 @@ nonAttrFormalType :=
 /* Simple Formal Type */
 
 simpleFormalType :=
-  ( ARRAY OF | '[]' OF )? typeIdent
+  ( ARRAY OF )? typeIdent
   ;
 
 
@@ -268,7 +268,7 @@ castingFormalType :=
 /* Variadic Formal Type */
 
 variadicFormalType :=
-  ARGLIST OF ( formalCharArray | typeIdent )
+  ARGLIST OF simpleFormalType
   ;
 
 
@@ -378,7 +378,7 @@ typeDeclaration :=
 /* Indeterminate Type */
 
 indeterminateType :=
-  IN RECORD fieldDeclaration ( fieldDeclaration ';' ) indeterminateField END
+  IN RECORD ( fieldDeclaration ';' )+ indeterminateField END
   ;
 
 /* Field Declaration */

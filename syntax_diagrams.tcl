@@ -360,13 +360,7 @@ lappend non_terminals returnedType {
 
 # (19) Simple Formal Type
 lappend non_terminals simpleFormalType {
-  line {
-    or
-      {line ARRAY OF}
-      {line [] OF}
-      nil
-  }
-  typeIdent
+  line {optx ARRAY OF} typeIdent
 }
 
 # (20) Casting Formal Type
@@ -380,12 +374,7 @@ lappend non_terminals castingFormalType {
 
 # (22) Variadic Formal Type
 lappend non_terminals variadicFormalType {
-  line ARGLIST OF {or typeIdent formalCharArray}
-}
-
-# (22.1) Formal Character Array
-lappend non_terminals formalCharArray {
-  line ARRAY OF {or /CHAR /UNICHAR}
+  line ARGLIST OF simpleFormalType
 }
 
 # (24) Procedure Header
