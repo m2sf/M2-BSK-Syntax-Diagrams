@@ -471,17 +471,12 @@ lappend non_terminals typeDeclaration {
 
 # (34.1) Indeterminate Type
 lappend non_terminals indeterminateType {
-  line IN RECORD {loop {line varOrFieldDeclaration ;} nil} indeterminateField END
+  line IN RECORD {optx {loop {line fieldList ;}}} indeterminateField END
 }
 
 # (34.2) Indeterminate Field Declaration
 lappend non_terminals indeterminateField {
-  line + ident : [ discriminantFieldIdent ] OF typeIdent
-}
-
-# (34.3) Discriminant Field Identifier
-lappend non_terminals discriminantFieldIdent {
-  line ident
+  line + ident : ARRAY OF typeIdent
 }
 
 # (35) Variable or Field Declaration
