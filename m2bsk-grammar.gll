@@ -261,7 +261,7 @@ simpleFormalType :=
 /* Casting Formal Type */
 
 castingFormalType :=
-  CAST ( '[]' OF OCTET | ADDRESS )
+  CAST ( OCTETSEQ | ADDRESS )
   ;
 
 

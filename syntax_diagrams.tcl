@@ -365,11 +365,7 @@ lappend non_terminals simpleFormalType {
 
 # (20) Casting Formal Type
 lappend non_terminals castingFormalType {
-  line /CAST {
-    or
-      {line [] OF /OCTET}
-      /ADDRESS
-    }
+  line /CAST {or /OCTETSEQ /ADDRESS}
 }
 
 # (22) Variadic Formal Type
