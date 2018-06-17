@@ -1,6 +1,6 @@
 #!/usr/bin/wish
 #
-# Syntax diagram generator for Modula-2 BSK, status Nov 15, 2016
+# Syntax diagram generator for Modula-2 BSK, status Jun 15, 2018
 #
 # This script is derived from the SQLite project's bubble-generator script.
 # It is quite possibly the only such tool that can wrap-around diagrams so
@@ -232,31 +232,27 @@ lappend non_terminals constExpression {
 
 # (8) Type Definition
 lappend non_terminals typeDefinition {
-  line ident = {or OPAQUE type}
-}
-
-# (10) Type
-lappend non_terminals type {
-  line {
+  line ident = {
     or
-      {line aliasType}
-      {line derivedType}
-      {line subrangeType}
-      {line enumType}
-      {line setType}
-      {line arrayType}
-      {line recordType}
-      {line pointerType}
-      {line procedureType}
+      OPAQUE
+      aliasType
+      derivedType
+      subrangeType
+      enumType
+      setType
+      arrayType
+      recordType
+      pointerType
+      procedureType
   }
 }
 
-# (10.1) Alias Type
+# (9) Alias Type
 lappend non_terminals aliasType {
   line ALIAS OF typeIdent
 }
 
-# (10.2) Derived Type
+# (10) Derived Type
 lappend non_terminals derivedType {
   line typeIdent
 }
@@ -462,15 +458,31 @@ lappend non_terminals wildcardAliasDecl {
 
 # (34) Type Declaration
 lappend non_terminals typeDeclaration {
-  line ident = {or indeterminateType type}
+  line ident = {
+    or
+      aliasType
+      derivedType
+      subrangeType
+      enumType
+      setType
+      arrayType
+      recordType
+      pointerOrIndeterminateType
+      procedureType
+  }
 }
 
-# (34.1) Indeterminate Type
-lappend non_terminals indeterminateType {
-  line IN RECORD {optx {loop {line fieldList ;}}} indeterminateField END
+# (34.1) pointerOrIndeterminateType
+lappend non_terminals pointerOrIndeterminateType {
+  line POINTER TO {or typeIdent indeterminateTarget}
 }
 
-# (34.2) Indeterminate Field Declaration
+# (34.2) Indeterminate Target
+lappend non_terminals indeterminateTarget {
+  line RECORD {optx {loop {line fieldList ;}}} indeterminateField END
+}
+
+# (34.3) Indeterminate Field Declaration
 lappend non_terminals indeterminateField {
   line + ident : ARRAY OF typeIdent
 }
