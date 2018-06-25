@@ -1,6 +1,6 @@
 #!/usr/bin/wish
 #
-# Syntax diagram generator for Modula-2 BSK, status Jun 15, 2018
+# Syntax diagram generator for Modula-2 BSK, status Jun 25, 2018
 #
 # This script is derived from the SQLite project's bubble-generator script.
 # It is quite possibly the only such tool that can wrap-around diagrams so
@@ -155,8 +155,9 @@ set non_terminals {}
 # (1) Compilation Unit
 lappend non_terminals compilationUnit {
   or
-    {line definitionModule}
-    {line implOrPrgmModule}
+    definitionModule
+    implementationModule
+    programModule
 }
 
 
@@ -389,22 +390,36 @@ lappend non_terminals formalParams {
 # Implementation and Program Module Syntax
 # ----------------------------------------
 
-# (30) Implementation or Program Module
-lappend non_terminals implOrPrgmModule {
+# (30) Program Module
+lappend non_terminals programModule {
   stack
-    {line {optx IMPLEMENTATION} MODULE moduleIdent ;}
-    {line {loop nil privateImport} block moduleIdent .}
+    {line MODULE moduleIdent ;}
+    {line {loop nil import} block moduleIdent .}
 }
 
-# (31) Private Import
+# (31) Block
+lappend non_terminals block {
+  line {loop nil {nil declaration nil}}
+  BEGIN statementSequence END
+}
+
+# (32) Implementation Module
+lappend non_terminals implementationModule {
+  stack
+    {line IMPLEMENTATION MODULE moduleIdent ;}
+    {line {loop nil privateImport} libraryBlock moduleIdent .}
+}
+
+# (32.1) Private Import
 lappend non_terminals privateImport {
   line import
 }
 
-# (32) Block
-lappend non_terminals block {
-  line {loop nil {nil declaration nil}}
-  {optx BEGIN statementSequence} END
+# (32.2) Library Block
+lappend non_terminals libraryBlock {
+  or
+    {line {loop declaration nil} {optx BEGIN statementSequence} END}
+    {line BEGIN statementSequence END}
 }
 
 # (33) Declaration
