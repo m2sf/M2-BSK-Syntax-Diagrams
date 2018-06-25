@@ -394,7 +394,12 @@ lappend non_terminals formalParams {
 lappend non_terminals programModule {
   stack
     {line MODULE moduleIdent ;}
-    {line {loop nil import} block moduleIdent .}
+    {line {loop nil privateImport} block moduleIdent .}
+}
+
+# (30.1) Private Import
+lappend non_terminals privateImport {
+  line import
 }
 
 # (31) Block
@@ -407,19 +412,12 @@ lappend non_terminals block {
 lappend non_terminals implementationModule {
   stack
     {line IMPLEMENTATION MODULE moduleIdent ;}
-    {line {loop nil privateImport} libraryBlock moduleIdent .}
+    {line {loop nil privateImport} possiblyEmptyBlock moduleIdent .}
 }
 
-# (32.1) Private Import
-lappend non_terminals privateImport {
-  line import
-}
-
-# (32.2) Library Block
-lappend non_terminals libraryBlock {
-  or
-    {line {loop declaration nil} {optx BEGIN statementSequence} END}
-    {line BEGIN statementSequence END}
+# (32.1) Possibly Empty Block
+lappend non_terminals possiblyEmptyBlock {
+  line {loop nil declaration} {optx BEGIN statementSequence} END
 }
 
 # (33) Declaration
