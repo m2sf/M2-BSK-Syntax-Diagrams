@@ -1,6 +1,6 @@
 #!/usr/bin/wish
 #
-# Syntax diagram generator for Modula-2 BSK, status Jun 25, 2018
+# Syntax diagram generator for Modula-2 BSK, status Jun 23, 2019
 #
 # This script is derived from the SQLite project's bubble-generator script.
 # It is quite possibly the only such tool that can wrap-around diagrams so
@@ -547,13 +547,8 @@ lappend non_terminals emptyStatement {
 # (38) Memory Management Operation
 lappend non_terminals memMgtOperation {
   or
-    {line NEW designator {optx OF initSize}}
+    {line NEW designator {optx CAPACITY expression}}
     {line RELEASE designator}
-}
-
-# (38.1) Initial Size
-lappend non_terminals initSize {
-  line expression
 }
 
 # (39) Update Or Procedure Call
