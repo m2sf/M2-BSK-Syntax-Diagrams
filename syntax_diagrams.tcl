@@ -1,6 +1,6 @@
 #!/usr/bin/wish
 #
-# Syntax diagram generator for Modula-2 BSK, status Jun 23, 2019
+# Syntax diagram generator for Modula-2 BSK, status Jun 28, 2019
 #
 # This script is derived from the SQLite project's bubble-generator script.
 # It is quite possibly the only such tool that can wrap-around diagrams so
@@ -104,6 +104,7 @@ wm withdraw .
 #   BACKSLASH is rendered as \
 #   SINGLE_QUOTE is rendered as '
 #   DOUBLE_QUOTE is rendered as "
+#   DOUBLE_DQUOTE is rendered as ""
 #   LEFT_BRACE is rendered as {
 #   RIGHT_BRACE is rendered as }
 #
@@ -372,8 +373,23 @@ lappend non_terminals variadicFormalType {
 
 # (24) Procedure Header
 lappend non_terminals procedureHeader {
-  line PROCEDURE procedureSignature
+  line PROCEDURE {optx [ entityToBindTo ]} procedureSignature
 }
+
+# (24.1) Entity To Bind To
+lappend non_terminals entityToBindTo {
+  or
+    NEW
+    RELEASE
+    READ
+    {line WRITE {optx formattedWriteFlag}}
+}
+
+# (24.2) Formatted Write Flag
+lappend non_terminals formattedWriteFlag {
+  line : DOUBLE_DQUOTE
+}
+
 
 # (25) Procedure Signature
 lappend non_terminals procedureSignature {
@@ -1966,6 +1982,8 @@ proc draw_bubble {txt} {
     set label "\'"
   } elseif {$txt=="DOUBLE_QUOTE"} {
     set label "\""
+  } elseif {$txt=="DOUBLE_DQUOTE"} {
+    set label "\"\""
   } elseif {$txt=="LBRACE" || $txt=="LEFT_BRACE"} {
     set label "\{"
   } elseif {$txt=="RBRACE" || $txt=="RIGHT_BRACE"} {
