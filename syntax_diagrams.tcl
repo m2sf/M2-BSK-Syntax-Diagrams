@@ -387,7 +387,7 @@ lappend non_terminals entityToBindTo {
 
 # (24.2) Read Binding Differentiator
 lappend non_terminals rDifferentiator {
-  line : ,
+  line : {or , +}
 }
 
 # (24.3) Write Binding Differentiator

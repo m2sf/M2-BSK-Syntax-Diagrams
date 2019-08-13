@@ -285,7 +285,7 @@ entityToBindTo :=
 /* Read Binding Differentiator */
 
 rDifferentiator :=
-  ':' ','
+  ':' ( ',' | '+' )?
   ;
   
 /* Write Binding Differentiator */
