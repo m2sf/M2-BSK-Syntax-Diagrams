@@ -379,20 +379,25 @@ lappend non_terminals procedureHeader {
 # (24.1) Entity To Bind To
 lappend non_terminals entityToBindTo {
   or
-    NEW
+    {line NEW {optx , newQualifier}}
     RELEASE
-    {line READ {optx rDifferentiator}}
-    {line WRITE {optx wDifferentiator}}
+    {line READ {optx , readQualifier}}
+    {line WRITE {optx , writeQualifier}}
 }
 
-# (24.2) Read Binding Differentiator
-lappend non_terminals rDifferentiator {
-  line : {or , +}
+# (24.2) NEW Binding Qualifier
+lappend non_terminals newQualifier {
+  or /CAPACITY ARGLIST
 }
 
-# (24.3) Write Binding Differentiator
-lappend non_terminals wDifferentiator {
-  line : {or , $}
+# (24.3) READ Binding Qualifier
+lappend non_terminals readQualifier {
+  or NEW ARGLIST
+}
+
+# (24.4) WRITE Binding Qualifier
+lappend non_terminals writeQualifier {
+  or ARGLIST FORMATTED
 }
 
 

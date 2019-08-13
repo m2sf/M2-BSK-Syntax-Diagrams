@@ -277,21 +277,28 @@ procedureHeader :=
 /* Entity to Bind to */
 
 entityToBindTo :=
-  NEW | RELEASE |
-  READ ( rDifferentiator )? |
-  WRITE ( wDifferentiator )?
+  NEW ( ',' newQualifier )? |
+  RELEASE |
+  READ ( ',' readQualifier )? |
+  WRITE ( ',' writeQualifier )?
   ;
   
-/* Read Binding Differentiator */
+/* NEW Binding Qualifier */
 
-rDifferentiator :=
-  ':' ( ',' | '+' )?
+newQualifier :=
+  CAPACITY | ARGLIST
+  ;
+
+/* READ Binding Qualifier */
+
+readQualifier :=
+  NEW | ARGLIST
   ;
   
-/* Write Binding Differentiator */
+/* WRITE Binding Qualifier */
 
-wDifferentiator :=
-  ':' ( ',' | '$' )?
+writeQualifier :=
+  ARGLIST | FORMATTED
   ; 
 
 
