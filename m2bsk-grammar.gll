@@ -277,13 +277,21 @@ procedureHeader :=
 /* Entity to Bind to */
 
 entityToBindTo :=
-  NEW | RELEASE | READ | WRITE ( formattedWriteFlag )?
+  NEW | RELEASE |
+  READ ( rDifferentiator )? |
+  WRITE ( wDifferentiator )?
   ;
   
-/* Formatted Write Flag */
+/* Read Binding Differentiator */
 
-formattedWriteFlag :=
-  ':' '""'
+rDifferentiator :=
+  ':' ','
+  ;
+  
+/* Write Binding Differentiator */
+
+wDifferentiator :=
+  ':' ( ',' | '$' )?
   ; 
 
 

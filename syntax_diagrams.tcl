@@ -1,6 +1,6 @@
 #!/usr/bin/wish
 #
-# Syntax diagram generator for Modula-2 BSK, status Jun 28, 2019
+# Syntax diagram generator for Modula-2 BSK, status Aug 12, 2019
 #
 # This script is derived from the SQLite project's bubble-generator script.
 # It is quite possibly the only such tool that can wrap-around diagrams so
@@ -381,13 +381,18 @@ lappend non_terminals entityToBindTo {
   or
     NEW
     RELEASE
-    READ
-    {line WRITE {optx formattedWriteFlag}}
+    {line READ {optx rDifferentiator}}
+    {line WRITE {optx wDifferentiator}}
 }
 
-# (24.2) Formatted Write Flag
-lappend non_terminals formattedWriteFlag {
-  line : DOUBLE_DQUOTE
+# (24.2) Read Binding Differentiator
+lappend non_terminals rDifferentiator {
+  line : ,
+}
+
+# (24.3) Write Binding Differentiator
+lappend non_terminals wDifferentiator {
+  line : {or , $}
 }
 
 
