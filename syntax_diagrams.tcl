@@ -1,6 +1,6 @@
 #!/usr/bin/wish
 #
-# Syntax diagram generator for Modula-2 BSK, status Aug 12, 2019
+# Syntax diagram generator for Modula-2 BSK, status Aug 20, 2019
 #
 # This script is derived from the SQLite project's bubble-generator script.
 # It is quite possibly the only such tool that can wrap-around diagrams so
@@ -180,12 +180,17 @@ lappend non_terminals moduleIdent {
 
 # (3) Import
 lappend non_terminals import {
-  line IMPORT {loop libIdent ,} ;
+  line IMPORT {loop {line libIdent {optx reExport}} ,} ;
 }
 
 # (3.1) Module Identifier
 lappend non_terminals libIdent {
   line StdIdent
+}
+
+# (3.2) Re-Export
+lappend non_terminals reExport {
+  line +
 }
 
 # (4) omitted
@@ -363,7 +368,7 @@ lappend non_terminals simpleFormalType {
 
 # (20) Casting Formal Type
 lappend non_terminals castingFormalType {
-  line /CAST {or /OCTETSEQ /ADDRESS}
+  line CAST {or /OCTETSEQ /ADDRESS}
 }
 
 # (22) Variadic Formal Type
@@ -379,25 +384,9 @@ lappend non_terminals procedureHeader {
 # (24.1) Entity To Bind To
 lappend non_terminals entityToBindTo {
   or
-    {line NEW {optx , newQualifier}}
+    {line {or NEW READ WRITE} {or nil + *}}
+    RETAIN
     RELEASE
-    {line READ {optx , readQualifier}}
-    {line WRITE {optx , writeQualifier}}
-}
-
-# (24.2) NEW Binding Qualifier
-lappend non_terminals newQualifier {
-  or /CAPACITY ARGLIST
-}
-
-# (24.3) READ Binding Qualifier
-lappend non_terminals readQualifier {
-  or NEW ARGLIST
-}
-
-# (24.4) WRITE Binding Qualifier
-lappend non_terminals writeQualifier {
-  or ARGLIST FORMATTED
 }
 
 
@@ -425,7 +414,7 @@ lappend non_terminals programModule {
 
 # (30.1) Private Import
 lappend non_terminals privateImport {
-  line import
+  line IMPORT {loop libIdent ,} ;
 }
 
 # (31) Block
@@ -548,7 +537,6 @@ lappend non_terminals statementSequence {
 lappend non_terminals statement {
   line {
     or
-      emptyStatement
       memMgtOperation
       updateOrProcCall
       returnStatement
@@ -561,20 +549,37 @@ lappend non_terminals statement {
       whileStatement
       repeatStatement
       forStatement
+      toDoList
       EXIT
   }
-}
-
-# (37.1) Empty Statement
-lappend non_terminals emptyStatement {
-  line toDoList
 }
 
 # (38) Memory Management Operation
 lappend non_terminals memMgtOperation {
   or
-    {line NEW designator {optx CAPACITY expression}}
-    {line RELEASE designator}
+    newStatement
+    retainStatement
+    releaseStatement
+}
+
+# (38.1) NEW Statement
+lappend non_terminals newStatement {
+  line NEW designator {
+    or
+      {line := expression}
+      {line CAPACITY expression}
+      nil
+  }
+}
+
+# (38.2) RETAIN Statement
+lappend non_terminals retainStatement {
+  line RETAIN designator
+}
+
+# (38.3) RELEASE Statement
+lappend non_terminals releaseStatement {
+  line RELEASE designator
 }
 
 # (39) Update Or Procedure Call
@@ -595,7 +600,7 @@ lappend non_terminals incOrDecSuffix {
     {line --}
 }
 
-# (40) Return Statement
+# (40) RETURN Statement
 lappend non_terminals returnStatement {
   line RETURN {optx expression}
 }
@@ -719,7 +724,7 @@ lappend non_terminals forLoopVariants {
 
 # (49.2) Index, Value
 lappend non_terminals indexOrSoleValue {
-  line ident
+  line StdIdent
 }
 
 # (49.3) Ascender Or Descender
