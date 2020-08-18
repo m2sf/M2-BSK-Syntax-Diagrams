@@ -1,6 +1,6 @@
 #!/usr/bin/wish
 #
-# Syntax diagram generator for Modula-2 BSK, status Aug 20, 2019
+# Syntax diagram generator for Modula-2 BSK, status July 31, 2020
 #
 # This script is derived from the SQLite project's bubble-generator script.
 # It is quite possibly the only such tool that can wrap-around diagrams so
@@ -183,34 +183,19 @@ lappend non_terminals import {
   line IMPORT {loop {line libIdent {optx reExport}} ,} ;
 }
 
-# (3.1) Module Identifier
+# (3.1) Library Identifier
 lappend non_terminals libIdent {
   line StdIdent
 }
 
-# (3.2) Re-Export
+# (3.2) Re-Export Suffix
 lappend non_terminals reExport {
   line +
 }
 
 # (4) omitted
 
-# (5) Identifier
-lappend non_terminals ident {
-  or StdIdent ForeignIdent
-}
-
-# (5.1) Qualified Identifier
-lappend non_terminals qualident {
-  loop ident .
-}
-
-# (5.2) Identifier List
-lappend non_terminals identList {
-  loop ident ,
-}
-
-# (6) Definition
+# (5) Definition
 lappend non_terminals definition {
   line {
     or
@@ -222,19 +207,19 @@ lappend non_terminals definition {
   }
 }
 
-# (6.1) Type Identifier
-lappend non_terminals typeIdent {
-  line qualident
-}
-
-# (7) Constant Definition
+# (6) Constant Definition
 lappend non_terminals constDefinition {
-  line ident = constExpression
+  line {optx [ {or /COLLATION /TLIMIT} ]} ident = constExpression
 }
 
-# (7.1) Constant Expression
+# (6.1) Constant Expression
 lappend non_terminals constExpression {
   line expression
+}
+
+# (7) Identifier
+lappend non_terminals ident {
+  or StdIdent ForeignIdent
 }
 
 # (8) Type Definition
@@ -257,6 +242,16 @@ lappend non_terminals typeDefinition {
 # (9) Alias Type
 lappend non_terminals aliasType {
   line ALIAS OF typeIdent
+}
+
+# (9.1) Type Identifier
+lappend non_terminals typeIdent {
+  line qualident
+}
+
+# (9.2) Qualified Identifier
+lappend non_terminals qualident {
+  loop ident .
 }
 
 # (10) Derived Type
@@ -304,6 +299,11 @@ lappend non_terminals enumTypeIdent {
   line typeIdent
 }
 
+# (12.3) Identifier List
+lappend non_terminals identList {
+  loop StdIdent ,
+}
+
 # (13) Set Type
 lappend non_terminals setType {
   line SET OF enumTypeIdent
@@ -331,7 +331,14 @@ lappend non_terminals recTypeToExtend {
 
 # (15.2) Field List
 lappend non_terminals fieldList {
-  line varOrFieldDeclaration
+  line identList : {
+    or
+      typeIdent
+      arrayType
+      subrangeType
+      procedureType
+      {line OCTETSEQ [ valueCount ]}
+  }
 }
 
 # (16) Pointer Type
@@ -368,34 +375,61 @@ lappend non_terminals simpleFormalType {
 
 # (20) Casting Formal Type
 lappend non_terminals castingFormalType {
-  line CAST {or /OCTETSEQ /ADDRESS}
+  line /CAST {or OCTETSEQ /ADDRESS}
 }
 
-# (22) Variadic Formal Type
+# (21) Variadic Formal Type
 lappend non_terminals variadicFormalType {
   line ARGLIST OF simpleFormalType
 }
 
-# (24) Procedure Header
+# (22) Procedure Header
 lappend non_terminals procedureHeader {
-  line PROCEDURE {optx [ entityToBindTo ]} procedureSignature
+  line PROCEDURE {optx [ bindingSpecifier ]} procedureSignature
 }
 
-# (24.1) Entity To Bind To
-lappend non_terminals entityToBindTo {
+# (22.1) Binding Specifier
+lappend non_terminals bindingSpecifier {
   or
-    {line {or NEW READ WRITE} {or nil + *}}
+    {line NEW {or argListFlag capacityFlag nil}}
     RETAIN
     RELEASE
+    {line READ {optx allocFlag}}
+    {line WRITE {optx formatFlag}}
+    {line bindableIdent}
 }
 
+# (22.2) Argument List Flag
+lappend non_terminals argListFlag {
+  line +
+}
 
-# (25) Procedure Signature
+# (22.3) Capacity Flag
+lappend non_terminals capacityFlag {
+  line *
+}
+
+# (22.4) Allocation Flag
+lappend non_terminals allocFlag {
+  line *
+}
+
+# (22.5) Format Flag
+lappend non_terminals formatFlag {
+  line OCTOTHORPE
+}
+
+# (22.6) Bindable Ident
+lappend non_terminals bindableIdent {
+  line {optx @} StdIdent
+}
+
+# (23) Procedure Signature
 lappend non_terminals procedureSignature {
   line ident {optx ( {loop formalParams ;} )} {optx : returnedType}
 }
 
-# (26) Formal Parameters
+# (24) Formal Parameters
 lappend non_terminals formalParams {
   line {or CONST VAR nil} identList : nonAttrFormalType
 }
@@ -419,7 +453,7 @@ lappend non_terminals privateImport {
 
 # (31) Block
 lappend non_terminals block {
-  line {loop nil {nil declaration nil}}
+  line {loop nil declaration}
   BEGIN statementSequence END
 }
 
@@ -442,7 +476,7 @@ lappend non_terminals declaration {
       {line ALIAS {loop {line aliasDeclaration ;} nil}}
       {line CONST {loop {line ident = constExpression ;} nil}}
       {line TYPE {loop {line typeDeclaration ;} nil}}
-      {line VAR {loop {line varOrFieldDeclaration ;} nil}}
+      {line VAR {loop {line varDeclaration ;} nil}}
       {line procedureHeader ; block ident ;}
       {line toDoList ;}
   }
@@ -512,20 +546,23 @@ lappend non_terminals indeterminateTarget {
 
 # (34.3) Indeterminate Field Declaration
 lappend non_terminals indeterminateField {
-  line + ident : ARRAY OF typeIdent
+  line + ident : ARRAY capacityField OF typeIdent
 }
 
-# (35) Variable or Field Declaration
-lappend non_terminals varOrFieldDeclaration {
-  line identList : {or typeIdent anonType}
+# (34.4) Capacity Field
+lappend non_terminals capacityField {
+  line ident
 }
 
-# (35.1) Anonymous Type
-lappend non_terminals anonType {
-  or
-    {line ARRAY valueCount OF typeIdent}
-    subrangeType
-    procedureType
+# (35) Variable Declaration
+lappend non_terminals varDeclaration {
+  line identList : {
+    or
+      typeIdent
+      arrayType
+      subrangeType
+      procedureType
+  }
 }
 
 # (36) Statement Sequence
@@ -551,6 +588,7 @@ lappend non_terminals statement {
       forStatement
       toDoList
       EXIT
+      NOP
   }
 }
 
@@ -567,7 +605,7 @@ lappend non_terminals newStatement {
   line NEW designator {
     or
       {line := expression}
-      {line CAPACITY expression}
+      {line /CAPACITY expression}
       nil
   }
 }
@@ -613,12 +651,17 @@ lappend non_terminals copyStatement {
 # (42) READ Statement
 lappend non_terminals readStatement {
   line READ {optx @ chan :}
-  {optx NEW} {loop designator ,}
+  {loop inputArg ,}
 }
 
 # (42.1) Channel
 lappend non_terminals chan {
   line designator
+}
+
+# (42.2) Input Arguments
+lappend non_terminals inputArg {
+  line {optx NEW} designator
 }
 
 # (43) WRITE Statement
@@ -629,22 +672,22 @@ lappend non_terminals writeStatement {
 
 # 43.1) Output Arguments
 lappend non_terminals outputArgs {
-  or formattedArgs unformattedArgs
+  or formattedArgs unformattedArg
 }
 
 # (43.2) Formatted Output Arguments
 lappend non_terminals formattedArgs {
-  line [ fmtStr , unformattedArgs ]
+  line OCTOTHORPE ( fmtStr , expressionList )
 }
 
-# (43.3) Format String
-lappend non_terminals fmtStr {
+# (43.3) Unformatted Argument
+lappend non_terminals unformattedArg {
   line expression
 }
 
-# (43.4) Unformatted Arguments
-lappend non_terminals unformattedArgs {
-  line expressionList
+# (43.4) Format String
+lappend non_terminals fmtStr {
+  line expression
 }
 
 # (44) IF Statement
@@ -693,7 +736,7 @@ lappend non_terminals whileStatement {
   line WHILE boolExpression DO statementSequence END
 }
 
-# (47) WHILE Statement 2
+# (47) WHILE Statement (wrapped)
 lappend non_terminals whileStatement2 {
   stack
     {line WHILE boolExpression DO statementSequence}
@@ -710,7 +753,7 @@ lappend non_terminals forStatement {
   line FOR forLoopVariants IN iterableExpr DO statementSequence END
 }
 
-# (49) FOR Statement 2
+# (49) FOR Statement (wrapped)
 lappend non_terminals forStatement2 {
   stack
     {line FOR forLoopVariants IN iterableExpr}
@@ -719,17 +762,17 @@ lappend non_terminals forStatement2 {
 
 # (49.1) FOR Loop Variants
 lappend non_terminals forLoopVariants {
-  line indexOrSoleValue {optx ascOrDesc} {optx , value}
+  line accessor {optx descender} {optx , value}
 }
 
-# (49.2) Index, Value
-lappend non_terminals indexOrSoleValue {
+# (49.2) Accessor, Value
+lappend non_terminals accessor {
   line StdIdent
 }
 
-# (49.3) Ascender Or Descender
-lappend non_terminals ascOrDesc {
-  line incOrDecSuffix
+# (49.3) Descender
+lappend non_terminals descender {
+  line --
 }
 
 # (49.4) Iterable Expression
@@ -764,35 +807,30 @@ lappend non_terminals designator {
   line ident {optx designatorTail}
 }
 
-# (50.1) Designator Tail CORRECTED
+# (50.1) Designator Tail
 lappend non_terminals designatorTail {
   or
     {line {or deref fieldSelector} {optx designatorTail}}
     subscriptOrSlice
 }
 
-# (50.2) Subscript Or Slice
+# (50.2) Deref
+lappend non_terminals deref {
+  line ^
+}
+
+# (50.3) Field Selector
+lappend non_terminals fieldSelector {
+  line . ident
+}
+
+# (50.4) Subscript Or Slice
 lappend non_terminals subscriptOrSlice {
   line [ expression {
     or
       {line ] {optx designatorTail}}
       {line .. {optx expression} ]}
     }
-}
-
-# (50.3) Deref
-lappend non_terminals deref {
-  line ^
-}
-
-# (50.4) Field Selector
-lappend non_terminals fieldSelector {
-  line . ident
-}
-
-# (50.2) Expression Or Slice
-lappend non_terminals exprOrSlice {
-  line expression {optx .. {optx expression}}
 }
 
 # (51) Expression List
@@ -815,7 +853,7 @@ lappend non_terminals operL1 {
 lappend non_terminals simpleExpression {
   or
     {loop term operL2}
-    {line - simpleFactor}
+    {line - factor}
 }
 
 # (53.1) Level-2 Operator
@@ -877,7 +915,11 @@ lappend non_terminals designatorOrFuncCall {
 
 # (57.2) Structured Value
 lappend non_terminals structuredValue {
-  line LBRACE {loop valueComponent ,} RBRACE
+  line LBRACE {
+    or
+      {loop valueComponent ,}
+      *
+    } RBRACE
 }
 
 # (57.3) Value Component
@@ -904,22 +946,22 @@ lappend non_terminals toDoList {
 
 # (58.1) Tracking Reference
 lappend non_terminals trackingRef {
-  line ( issueId , weight )
+  line ( issueId {optx , severity , description } )
 }
 
-# 58.2) IssueId
+# (58.2) Task To Do
+lappend non_terminals taskToDo {
+  line description {optx , estimatedTime timeUnit }
+}
+
+# (58.3) IssueId, Severity, Estimated Time
 lappend non_terminals issueId {
   line wholeNumber
 }
 
-# (58.3) Whole Number
-lappend non_terminals wholeNumber {
-  line NumberLiteral 
-}
-
-# (58.4) Task To Do
-lappend non_terminals taskToDo {
-  line description {optx , estimatedHours}
+# (58.4) Time Unit
+lappend non_terminals timeUnit {
+  line StdIdent
 }
 
 # (58.5) Description
@@ -927,9 +969,9 @@ lappend non_terminals description {
   line StringLiteral
 }
 
-# (58.6) Weight, Estimated Hours
-lappend non_terminals estimatedHours {
-  line constExpression
+# (58.3) Whole Number
+lappend non_terminals wholeNumber {
+  line NumberLiteral 
 }
 
 
@@ -939,446 +981,24 @@ lappend non_terminals estimatedHours {
 #
 set terminals {}
 
-# ------------------
-# (1) Reserved Words
-# ------------------
-set res_words {}
-
-# (1.1) ALIAS
-lappend res_words ALIAS {
-  line ALIAS
-}
-
-# (1.2) AND
-lappend res_words AND {
-  line AND
-}
-
-# (1.3) ARGLIST
-lappend res_words ARGLIST {
-  line ARGLIST
-}
-
-# (1.4) ARRAY
-lappend res_words ARRAY {
-  line ARRAY
-}
-
-# (1.5) BARE
-lappend res_words BARE {
-  line BARE
-}
-
-# (1.6) BEGIN
-lappend res_words BEGIN {
-  line BEGIN
-}
-
-# (1.9) CASE
-lappend res_words CASE {
-  line CASE
-}
-
-# (1.10) CONST
-lappend res_words CONST {
-  line CONST
-}
-
-# (1.12) DEFINITION
-lappend res_words DEFINITION {
-  line DEFINITION
-}
-
-# (1.13) DIV
-lappend res_words DIV {
-  line DIV
-}
-
-# (1.14) DO
-lappend res_words DO {
-  line DO
-}
-
-# (1.15) ELSE
-lappend res_words ELSE {
-  line ELSE
-}
-
-# (1.16) ELSIF
-lappend res_words ELSIF {
-  line ELSIF
-}
-
-# (1.17) END
-lappend res_words END {
-  line END
-}
-
-# (1.18) EXIT
-lappend res_words EXIT {
-  line EXIT
-}
-
-# (1.19) FOR
-lappend res_words FOR {
-  line FOR
-}
-
-# (1.22) IF
-lappend res_words IF {
-  line IF
-}
-
-# (1.23) IMPLEMENTATION
-lappend res_words IMPLEMENTATION {
-  line IMPLEMENTATION
-}
-
-# (1.24) IMPORT
-lappend res_words IMPORT {
-  line IMPORT
-}
-
-# (1.25) IN
-lappend res_words IN {
-  line IN
-}
-
-# (1.26) LOOP
-lappend res_words LOOP {
-  line LOOP
-}
-
-# (1.27) MOD
-lappend res_words MOD {
-  line MOD
-}
-
-# (1.28) MODULE
-lappend res_words MODULE {
-  line MODULE
-}
-
-# (1.29) NEW
-lappend res_words NEW {
-  line NEW
-}
-
-# (1.31) NOT
-lappend res_words NOT {
-  line NOT
-}
-
-# (1.32) OF
-lappend res_words OF {
-  line OF
-}
-
-# (1.33) OPAQUE
-lappend res_words OPAQUE {
-  line OPAQUE
-}
-
-# (1.34) OR
-lappend res_words OR {
-  line OR
-}
-
-# (1.35) POINTER
-lappend res_words POINTER {
-  line POINTER
-}
-
-# (1.36) PROCEDURE
-lappend res_words PROCEDURE {
-  line PROCEDURE
-}
-
-# (1.37) RECORD
-lappend res_words RECORD {
-  line RECORD
-}
-
-# (1.39) RELEASE
-lappend res_words RELEASE {
-  line RELEASE
-}
-
-# (1.40) REPEAT
-lappend res_words REPEAT {
-  line REPEAT
-}
-
-# (1.42) RETURN
-lappend res_words RETURN {
-  line RETURN
-}
-
-# (1.43) SET
-lappend res_words SET {
-  line SET
-}
-
-# (1.44) THEN
-lappend res_words THEN {
-  line THEN
-}
-
-# (1.45) TO
-lappend res_words TO {
-  line TO
-}
-
-# (1.46) TYPE
-lappend res_words TYPE {
-  line TYPE
-}
-
-# (1.47) UNTIL
-lappend res_words UNTIL {
-  line UNTIL
-}
-
-# (1.48) VAR
-lappend res_words VAR {
-  line VAR
-}
-
-# (1.49) WHILE
-lappend res_words WHILE {
-  line WHILE
-}
-
-
-# ------------------------
-# (2) Dual-Use Identifiers
-# ------------------------
-set res_idents {}
-
-# (2.2) ADDRESS
-lappend res_idents ADDRESS {
-  line /ADDRESS
-}
-
-# (2.4) CAST
-lappend res_idents CAST {
-  line /CAST
-}
-
-# (2.10) OCTET
-lappend res_idents /OCTET {
-  line /OCTET
-}
-
-# (2.28) UNSAFE
-lappend res_idents UNSAFE {
-  line /UNSAFE
-}
-
-
-# -------------------
-# (3) Special Symbols
-# -------------------
-set res_symbols {}
-
-# (3.1) Dot
-lappend res_symbols Dot {
-  line .
-}
-
-# (3.2) Comma
-lappend res_symbols Comma {
-  line ,
-}
-
-# (3.3) Colon
-lappend res_symbols Colon {
-  line :
-}
-
-# (3.4) Semicolon
-lappend res_symbols Semicolon {
-  line ;
-}
-
-# (3.5) Vertical Bar
-lappend res_symbols VerticalBar {
-  line |
-}
-
-# (3.6) Caret
-lappend res_symbols Caret {
-  line ^
-}
-
-# (3.7) Double Dot
-lappend res_symbols DoubleDot {
-  line ..
-}
-
-# (3.8) Assign
-lappend res_symbols Assign {
-  line :=
-}
-
-# (3.9) Double Plus
-lappend res_symbols DoublePlus {
-  line ++
-}
-
-# (3.10) Double Minus
-lappend res_symbols DoubleMinus {
-  line --
-}
-
-# (3.11) Double Colon
-lappend res_symbols DoubleColon {
-  line ::
-}
-
-# (3.12) Plus
-lappend res_symbols Plus {
-  line +
-}
-
-# (3.13) Minus
-lappend res_symbols Minus {
-  line -
-}
-
-# (3.14) Asterisk
-lappend res_symbols Asterisk {
-  line *
-}
-
-# (3.15) Slash
-lappend res_symbols Slash {
-  line /
-}
-
-# (3.16) Backslash
-lappend res_symbols Backslash {
-  line BACKSLASH
-}
-
-# (3.17) Equal
-lappend res_symbols Equal {
-  line =
-}
-
-# (3.18) Not Equal
-lappend res_symbols NotEqual {
-  line #
-}
-
-# (3.19) Greater Than
-lappend res_symbols GreaterThan {
-  line >
-}
-
-# (3.20) Greater Or Equal
-lappend res_symbols GreaterOrEqual {
-  line >=
-}
-
-# (3.21) Less Than
-lappend res_symbols LessThan {
-  line <
-}
-
-# (3.22) Less Or Equal
-lappend res_symbols LessOrEqual {
-  line <=
-}
-
-# (3.24) Ampersand
-lappend res_symbols Ampersand {
-  line &
-}
-
-# (3.29) Left Parenthesis
-lappend res_symbols LeftParen {
-  line (
-}
-
-# (3.30) Right Parenthesis
-lappend res_symbols RightParen {
-  line )
-}
-
-# (3.31) Left Bracket
-lappend res_symbols LeftBracket {
-  line [
-}
-
-# (3.32) Right Bracket
-lappend res_symbols RightBracket {
-  line ]
-}
-
-# (3.33) Left Brace
-lappend res_symbols LeftBrace {
-  line LBRACE
-}
-
-# (3.34) Right Brace
-lappend res_symbols RightBrace {
-  line RBRACE
-}
-
-# (3.36) Open Pragma
-lappend res_symbols OpenPragma {
-  line <*
-}
-
-# (3.37) Close Pragma
-lappend res_symbols ClosePragma {
-  line *>
-}
-
-# (3.38) Single Quote
-lappend res_symbols SingleQuote {
-  line SINGLE_QUOTE
-}
-
-# (3.39) Double Quote
-lappend res_symbols DoubleQuote {
-  line DOUBLE_QUOTE
-}
-
-# (3.42) Exclamation
-lappend res_symbols Exclamation {
-  line !
-}
-
-# (3.43) Open Comment
-lappend res_symbols OpenComment {
-  line (*
-}
-
-# (3.44) Close Comment
-lappend res_symbols CloseComment {
-  line *)
-}
-
 
 # -----------------------
-# (4) Standard Identifier
+# (1) Standard Identifier
 # -----------------------
 
-# (4) Standard Identifier
+# (1) Standard Identifier
 lappend terminals StdIdent {
   line Letter {loop nil LetterOrDigit}
 }
 
-# (4.1) Letter Or Digit
+# (1.1) Letter Or Digit
 lappend terminals LetterOrDigit {
   or Letter Digit
 }
 
 
 # ----------------------
-# (5) Foreign Identifier
+# (2) Foreign Identifier
 # ----------------------
 
 lappend terminals ForeignIdent {
@@ -1387,14 +1007,14 @@ lappend terminals ForeignIdent {
     {line StdIdent {loop ForeignIdentTail nil}}
 }
 
-# (4.1) Foreign Identifier Tail
+# (2.1) Foreign Identifier Tail
 lappend terminals ForeignIdentTail {
   line {or $ _} {loop LetterOrDigit nil}
 }
 
 
 # ------------------
-# (6) Number Literal
+# (3) Number Literal
 # ------------------
 lappend terminals NumberLiteral {
   or
@@ -1409,7 +1029,7 @@ lappend terminals NumberLiteral {
     {line 1..9 {optx DecimalNumberTail}}
 }
 
-# (6.1) Decimal Number Tail
+# (3.1) Decimal Number Tail
 lappend terminals DecimalNumberTail {
   or
    {line {optx SINGLE_QUOTE} DigitSeq {optx RealNumberTail}}
@@ -1421,106 +1041,106 @@ lappend terminals DecimalNumberTail {
 #   line SINGLE_QUOTE
 # }
 
-# (6.2) Real Number Tail
+# (3.2) Real Number Tail
 lappend terminals RealNumberTail {
   line . DigitSeq {optx e {or + - nil} DigitSeq }
 }
 
-# (6.3) Digit Sequence
+# (3.3) Digit Sequence
 lappend terminals DigitSeq {
   loop DigitGroup SINGLE_QUOTE
 }
 
-# (6.3b) Digit Group
+# (3.3b) Digit Group
 lappend terminals DigitGroup {
   loop Digit nil
 }
 
-# (6.4) Base-16 Digit Sequence
+# (3.4) Base-16 Digit Sequence
 lappend terminals Base16DigitSeq {
   loop Base16DigitGroup SINGLE_QUOTE
 }
 
-# (6.4b) Base-16 Digit Group
+# (3.4b) Base-16 Digit Group
 lappend terminals Base16DigitGroup {
   loop Base16Digit nil
 }
 
-# (6.5) Base-2 Digit Sequence
+# (3.5) Base-2 Digit Sequence
 lappend terminals Base2DigitSeq {
   loop Base2DigitGroup SINGLE_QUOTE
 }
 
-# (6.5b) Base-2 Digit Group
+# (3.5b) Base-2 Digit Group
 lappend terminals Base2DigitGroup {
   loop Base2Digit nil
 }
 
-# (6.6) Digit
+# (3.6) Digit
 lappend terminals Digit {
   or Base2Digit 2 3 4 5 6 7 8 9
 }
 
-# (6.7) Base-16 Digit
+# (3.7) Base-16 Digit
 lappend terminals Base16Digit {
   or Digit A B C D E F
 }
 
-# (6.8) Base-2 Digit
+# (3.8) Base-2 Digit
 lappend terminals Base2Digit {
   or 0 1
 }
 
 # ------------------
-# (7) String Literal
+# (4) String Literal
 # ------------------
 lappend terminals StringLiteral {
   or SingleQuotedString DoubleQuotedString
 }
 
-# (7.1) Single Quoted String
+# (4.1) Single Quoted String
 lappend terminals SingleQuotedString {
   line SINGLE_QUOTE
     {optx {loop {or QuotableCharacter DOUBLE_QUOTE} nil}}
   SINGLE_QUOTE
 }
 
-# (7.2) Double Quoted String
+# (4.2) Double Quoted String
 lappend terminals DoubleQuotedString {
   line DOUBLE_QUOTE
     {optx {loop {or QuotableCharacter SINGLE_QUOTE} nil}}
   DOUBLE_QUOTE
 }
 
-# (7.3) Quotable Character
+# (4.3) Quotable Character
 lappend terminals QuotableCharacter {
   or Digit Letter Space NonAlphaNumQuotable EscapedCharacter
 }
 
-# (7.4) Letter
+# (4.4) Letter
 lappend terminals Letter {
   or A..Z a..z 
 }
 
-# (7.5) Space
+# (4.5) Space
 # CONST Space = CHR(32);
 
-# (7.6a) Non-Alphanumeric Quotable Character
+# (4.6a) Non-Alphanumeric Quotable Character
 lappend terminals NonAlphaNumQuotable1 {
   or ! # $ % & ( ) * + ,
 }
 
-# (7.6b) Non-Alphanumeric Quotable Character
+# (4.6b) Non-Alphanumeric Quotable Character
 lappend terminals NonAlphaNumQuotable2 {
   or - . / : ; < = > ? @
 }
 
-# (7.6c) Non-Alphanumeric Quotable Character
+# (4.6c) Non-Alphanumeric Quotable Character
 lappend terminals NonAlphaNumQuotable3 {
   or [ ] ^ _ ` LBRACE | RBRACE ~
 }
 
-# (7.7) Escaped Character
+# (4.7) Escaped Character
 lappend terminals EscapedCharacter {
   line BACKSLASH {or n t BACKSLASH}
 }
@@ -1578,7 +1198,7 @@ lappend ignore_symbols EndOfLine {
 # ---------------------------------------------------------------------------
 #
 
-# (4) Disabled Code Section
+# (7) Disabled Code Section
 lappend ignore_symbols DisabledCodeSection {
   line
     StartOfLine ?<
@@ -1586,92 +1206,66 @@ lappend ignore_symbols DisabledCodeSection {
     EndOfLine >?
 }
 
-# (4.1) Start Of Line
+# (7.1) Start Of Line
 # not a symbol
 
-# (4.2) Any Printable Character
+# (7.2) Any Printable Character
 lappend ignore_symbols AnyPrintable {
   line 0u20..0u7E
 }
 
+
 # ---------------------------------------------------------------------------
-# Pragma Grammar (optional in M2 BSK)
+# Pragma Grammar
 # ---------------------------------------------------------------------------
 #
 set pragmas {}
 
-# (1) Pragma
-lappend pragmas pragma {
-  line <* pragmaBody *>
+# (1) Pragma INLINE
+lappend pragmas inlinePragma {
+  line <* INLINE *>
 }
 
-# (1.1) Pragma Body
-lappend pragmas pragmaBody {
-  or
-    ffiPragma
-    ffidentPragma
+# (2) Pragma DEPRECATED
+lappend pragmas deprecatedPragma {
+  line <* DEPRECATED *>
 }
 
-# (15) Body Of Foreign Function Interface Pragma
-lappend pragmas ffiPragma {
-  line FFI = {or `C `CLR `JVM }
+# (3) Pragma PRIVATETO
+lappend pragmas privatetoPragma {
+  line <* PRIVATETO = identList *>
 }
 
-# (16) Body Of Foreign Function Identifier Mapping Pragma
+# (4) Pragma FFI
+lappend pragmas ffiPragma2 {
+  line <* FFI = {or `C `CLR `JVM } *>
+}
+
+# (5) Pragma FFIDENT
 lappend pragmas ffidentPragma {
-  line FFIDENT = StringLiteral
+  line <* FFIDENT = StringLiteral *>
 }
 
-
-# ---------------------------------------------------------------------------
-# Alias Diagrams
-# ---------------------------------------------------------------------------
-#
-set aliases {}
-
-# Alias For Identifier
-lappend aliases AliasForIdent {
-  line Ident
+# (6) Implementation Defined Pragma
+lappend pragmas implDefPragma {
+  stack
+    {line <* {optx implPrefix .} pragmaSymbol}
+    {line {optx = constExpr} | ctMsgMode *> }
 }
 
-# Alias For Blueprint Identifier
-lappend aliases AliasForBlueprintIdent {
-  line blueprintIdent
+# (6.1) Compile Time Message Mode
+lappend pragmas ctMsgMode {
+  or INFO WARN ERROR FATAL
 }
 
-# Alias For Qualified Identifier
-lappend aliases AliasForQualident {
-  line qualident
+# (6.2) Implementation Prefix
+lappend pragmas implPrefix {
+  line _IMPLEMENTATION_DEFINED_
 }
 
-# Alias For Number
-lappend aliases AliasForNumericLiteral {
-  line NumericLiteral
-}
-
-# Alias For Whole Number
-lappend aliases AliasForWholeNumber {
-  line wholeNumber
-}
-
-# Alias For String
-lappend aliases AliasForStringLiteral {
-  line StringLiteral
-}
-
-# Alias For Constant Expression
-lappend aliases AliasForConstExpr {
-  line constExpression
-}
-
-# Alias For Expression
-lappend aliases AliasForExpression {
-  line expression
-}
-
-# Alias For Type Identifier
-lappend aliases AliasForTypeIdent {
-  line typeIdent
+# (6.3) Pragma Symbol
+lappend pragmas pragmaSymbol {
+  line _IMPLEMENTATION_DEFINED_
 }
 
 
@@ -1823,27 +1417,6 @@ set b .bb.b$bn
 button $b -text "Draw Terminals" -command {draw_graphs $terminals}
 pack $b -side top -fill x -expand 0 -pady 0
 
-# Menu: Reserved Words
-#
-incr bn
-set b .bb.b$bn
-button $b -text "Draw Reserved Words" -command {draw_graphs $res_words}
-pack $b -side top -fill x -expand 0 -pady 0
-
-# Menu: Dual-Use Identifiers
-#
-incr bn
-set b .bb.b$bn
-button $b -text "Draw Dual-Use Identifiers" -command {draw_graphs $res_idents}
-pack $b -side top -fill x -expand 0 -pady 0
-
-# Menu: Special Symbols
-#
-incr bn
-set b .bb.b$bn
-button $b -text "Draw Special Symbols" -command {draw_graphs $res_symbols}
-pack $b -side top -fill x -expand 0 -pady 0
-
 # Menu: Pragmas
 #
 incr bn
@@ -1856,13 +1429,6 @@ pack $b -side top -fill x -expand 0 -pady 0
 incr bn
 set b .bb.b$bn
 button $b -text "Draw Ignore Symbols" -command {draw_graphs $ignore_symbols}
-pack $b -side top -fill x -expand 0 -pady 0
-
-# Menu: Aliases
-#
-incr bn
-set b .bb.b$bn
-button $b -text "Draw Aliases" -command {draw_graphs $aliases}
 pack $b -side top -fill x -expand 0 -pady 0
 
 # Menu: Legend
@@ -1991,6 +1557,8 @@ proc draw_bubble {txt} {
   set isQuotedString 0
   if {$txt=="SPACE"} {
     set label "' '"
+  } elseif {$txt=="OCTOTHORPE"} {
+    set label "\#"
   } elseif {$txt=="BACKSLASH"} {
     set label "\\"
   } elseif {$txt=="SINGLE_QUOTE"} {
@@ -2003,6 +1571,8 @@ proc draw_bubble {txt} {
     set label "\{"
   } elseif {$txt=="RBRACE" || $txt=="RIGHT_BRACE"} {
     set label "\}"
+  } elseif {$txt=="_IMPLEMENTATION_DEFINED_"} {
+    set label " implementation defined "
   } else {
     set label $txt
   }
@@ -2686,21 +2256,14 @@ proc draw_graphs {group} {
 proc draw_all_graphs {} {
   global non_terminals
   global terminals
-  global res_words
-  global res_idents
-  global res_symbols
   global pragmas
   global ignore_symbols
   global aliases
   global legend
   draw_graphs $non_terminals
   draw_graphs $terminals
-  draw_graphs $res_words
-  draw_graphs $res_idents
-  draw_graphs $res_symbols
   draw_graphs $pragmas
   draw_graphs $ignore_symbols
-  draw_graphs $aliases
   draw_graphs $legend
 } ;# end draw_all_graphs
 
