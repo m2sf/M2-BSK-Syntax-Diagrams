@@ -219,7 +219,7 @@ lappend non_terminals constExpression {
 
 # (7) Identifier
 lappend non_terminals ident {
-  or StdIdent ForeignIdent
+  line StdIdent
 }
 
 # (8) Type Definition
@@ -421,7 +421,7 @@ lappend non_terminals formatFlag {
 
 # (22.6) Bindable Ident
 lappend non_terminals bindableIdent {
-  line {optx @} StdIdent
+  or Pervasive Primitive
 }
 
 # (23) Procedure Signature
@@ -622,7 +622,7 @@ lappend non_terminals releaseStatement {
 
 # (39) Update Or Procedure Call
 lappend non_terminals updateOrProcCall {
-  line designator {
+  line targetDesignator {
     or
       {line incOrDecSuffix}
       {line := expression}
@@ -645,7 +645,7 @@ lappend non_terminals returnStatement {
 
 # (41) COPY Statement
 lappend non_terminals copyStatement {
-  line COPY designator := expression
+  line COPY targetDesignator := expression
 }
 
 # (42) READ Statement
@@ -802,16 +802,28 @@ lappend non_terminals ordinalType {
   line typeIdent
 }
 
-# (50) Designator
+# (50a) Designator
 lappend non_terminals designator {
   line ident {optx designatorTail}
 }
 
-# (50.1) Designator Tail
+# (50b) Target Designator
+lappend non_terminals targetDesignator {
+  line ident {optx targetDesignatorTail}
+}
+
+# (50a.1) Designator Tail
 lappend non_terminals designatorTail {
   or
     {line {or deref fieldSelector} {optx designatorTail}}
     subscriptOrSlice
+}
+
+# (50b.1) Target Designator Tail
+lappend non_terminals targetDesignatorTail {
+  or
+    {line {or deref fieldSelector} {optx targetDesignatorTail}}
+    subscriptOrSliceOrInsert
 }
 
 # (50.2) Deref
@@ -824,11 +836,20 @@ lappend non_terminals fieldSelector {
   line . ident
 }
 
-# (50.4) Subscript Or Slice
+# (50.5) Subscript Or Slice
 lappend non_terminals subscriptOrSlice {
   line [ expression {
     or
       {line ] {optx designatorTail}}
+      {line .. expression ]}
+    }
+}
+
+# (50.6) Subscript Or Slice Or Insert
+lappend non_terminals subscriptOrSliceOrInsert {
+  line [ expression {
+    or
+      {line ] {optx targetDesignatorTail}}
       {line .. {optx expression} ]}
     }
 }
@@ -983,7 +1004,7 @@ set terminals {}
 
 
 # -----------------------
-# (1) Standard Identifier
+# Identifiers
 # -----------------------
 
 # (1) Standard Identifier
@@ -996,25 +1017,19 @@ lappend terminals LetterOrDigit {
   or Letter Digit
 }
 
-
-# ----------------------
-# (2) Foreign Identifier
-# ----------------------
-
-lappend terminals ForeignIdent {
-  or
-    {line $ {loop LetterOrDigit nil} {loop nil ForeignIdentTail}}
-    {line StdIdent {loop ForeignIdentTail nil}}
+# (1.2) Pervasive
+lappend terminals Pervasive {
+  line {loop {line A..Z} nil} {optx Digit} 
 }
 
-# (2.1) Foreign Identifier Tail
-lappend terminals ForeignIdentTail {
-  line {or $ _} {loop LetterOrDigit nil}
+# (1.3) Primitive
+lappend terminals Primitive {
+  line _ {loop {line A..Z} nil} 
 }
 
 
 # ------------------
-# (3) Number Literal
+# Number Literals
 # ------------------
 lappend terminals NumberLiteral {
   or
@@ -1029,7 +1044,7 @@ lappend terminals NumberLiteral {
     {line 1..9 {optx DecimalNumberTail}}
 }
 
-# (3.1) Decimal Number Tail
+# (2.1) Decimal Number Tail
 lappend terminals DecimalNumberTail {
   or
    {line {optx SINGLE_QUOTE} DigitSeq {optx RealNumberTail}}
@@ -1041,106 +1056,106 @@ lappend terminals DecimalNumberTail {
 #   line SINGLE_QUOTE
 # }
 
-# (3.2) Real Number Tail
+# (2.2) Real Number Tail
 lappend terminals RealNumberTail {
   line . DigitSeq {optx e {or + - nil} DigitSeq }
 }
 
-# (3.3) Digit Sequence
+# (2.3) Digit Sequence
 lappend terminals DigitSeq {
   loop DigitGroup SINGLE_QUOTE
 }
 
-# (3.3b) Digit Group
+# (2.3b) Digit Group
 lappend terminals DigitGroup {
   loop Digit nil
 }
 
-# (3.4) Base-16 Digit Sequence
+# (2.4) Base-16 Digit Sequence
 lappend terminals Base16DigitSeq {
   loop Base16DigitGroup SINGLE_QUOTE
 }
 
-# (3.4b) Base-16 Digit Group
+# (2.4b) Base-16 Digit Group
 lappend terminals Base16DigitGroup {
   loop Base16Digit nil
 }
 
-# (3.5) Base-2 Digit Sequence
+# (2.5) Base-2 Digit Sequence
 lappend terminals Base2DigitSeq {
   loop Base2DigitGroup SINGLE_QUOTE
 }
 
-# (3.5b) Base-2 Digit Group
+# (2.5b) Base-2 Digit Group
 lappend terminals Base2DigitGroup {
   loop Base2Digit nil
 }
 
-# (3.6) Digit
+# (2.6) Digit
 lappend terminals Digit {
   or Base2Digit 2 3 4 5 6 7 8 9
 }
 
-# (3.7) Base-16 Digit
+# (2.7) Base-16 Digit
 lappend terminals Base16Digit {
   or Digit A B C D E F
 }
 
-# (3.8) Base-2 Digit
+# (2.8) Base-2 Digit
 lappend terminals Base2Digit {
   or 0 1
 }
 
 # ------------------
-# (4) String Literal
+# (3) String Literal
 # ------------------
 lappend terminals StringLiteral {
   or SingleQuotedString DoubleQuotedString
 }
 
-# (4.1) Single Quoted String
+# (3.1) Single Quoted String
 lappend terminals SingleQuotedString {
   line SINGLE_QUOTE
     {optx {loop {or QuotableCharacter DOUBLE_QUOTE} nil}}
   SINGLE_QUOTE
 }
 
-# (4.2) Double Quoted String
+# (3.2) Double Quoted String
 lappend terminals DoubleQuotedString {
   line DOUBLE_QUOTE
     {optx {loop {or QuotableCharacter SINGLE_QUOTE} nil}}
   DOUBLE_QUOTE
 }
 
-# (4.3) Quotable Character
+# (3.3) Quotable Character
 lappend terminals QuotableCharacter {
   or Digit Letter Space NonAlphaNumQuotable EscapedCharacter
 }
 
-# (4.4) Letter
+# (3.4) Letter
 lappend terminals Letter {
   or A..Z a..z 
 }
 
-# (4.5) Space
+# (3.5) Space
 # CONST Space = CHR(32);
 
-# (4.6a) Non-Alphanumeric Quotable Character
+# (3.6a) Non-Alphanumeric Quotable Character
 lappend terminals NonAlphaNumQuotable1 {
   or ! # $ % & ( ) * + ,
 }
 
-# (4.6b) Non-Alphanumeric Quotable Character
+# (3.6b) Non-Alphanumeric Quotable Character
 lappend terminals NonAlphaNumQuotable2 {
   or - . / : ; < = > ? @
 }
 
-# (4.6c) Non-Alphanumeric Quotable Character
+# (3.6c) Non-Alphanumeric Quotable Character
 lappend terminals NonAlphaNumQuotable3 {
   or [ ] ^ _ ` LBRACE | RBRACE ~
 }
 
-# (4.7) Escaped Character
+# (3.7) Escaped Character
 lappend terminals EscapedCharacter {
   line BACKSLASH {or n t BACKSLASH}
 }
@@ -1194,28 +1209,6 @@ lappend ignore_symbols EndOfLine {
 
 
 # ---------------------------------------------------------------------------
-# Debugging Aid -- Not part of the language specification
-# ---------------------------------------------------------------------------
-#
-
-# (7) Disabled Code Section
-lappend ignore_symbols DisabledCodeSection {
-  line
-    StartOfLine ?<
-    {loop {or AnyPrintable Whitespace EndOfLine} nil}
-    EndOfLine >?
-}
-
-# (7.1) Start Of Line
-# not a symbol
-
-# (7.2) Any Printable Character
-lappend ignore_symbols AnyPrintable {
-  line 0u20..0u7E
-}
-
-
-# ---------------------------------------------------------------------------
 # Pragma Grammar
 # ---------------------------------------------------------------------------
 #
@@ -1266,6 +1259,42 @@ lappend pragmas implPrefix {
 # (6.3) Pragma Symbol
 lappend pragmas pragmaSymbol {
   line _IMPLEMENTATION_DEFINED_
+}
+
+
+# ---------------------------------------------------------------------------
+# Optional Language Extensions
+# ---------------------------------------------------------------------------
+#
+
+set extensions {}
+
+# (1) Foreign Identifier
+lappend extensions ForeignIdent {
+  or
+    {line $ {loop LetterOrDigit nil} {loop nil ForeignIdentTail}}
+    {line StdIdent {loop ForeignIdentTail nil}}
+}
+
+# (1.1) Foreign Identifier Tail
+lappend extensions ForeignIdentTail {
+  line {or $ _} {loop LetterOrDigit nil}
+}
+
+# (2) Disabled Code Section
+lappend extensions DisabledCodeSection {
+  line
+    StartOfLine ?<
+    {loop {or AnyPrintable Whitespace EndOfLine} nil}
+    EndOfLine >?
+}
+
+# (2.1) Start Of Line
+# not a symbol
+
+# (2.2) Any Printable Character
+lappend extensions AnyPrintable {
+  line 0u20..0u7E
 }
 
 
@@ -1430,6 +1459,14 @@ incr bn
 set b .bb.b$bn
 button $b -text "Draw Ignore Symbols" -command {draw_graphs $ignore_symbols}
 pack $b -side top -fill x -expand 0 -pady 0
+
+# Menu: Extensions 
+#
+incr bn
+set b .bb.b$bn
+button $b -text "Draw Extensions" -command {draw_graphs $extensions}
+pack $b -side top -fill x -expand 0 -pady 0
+
 
 # Menu: Legend
 #
@@ -2258,12 +2295,14 @@ proc draw_all_graphs {} {
   global terminals
   global pragmas
   global ignore_symbols
+  global extensions
   global aliases
   global legend
   draw_graphs $non_terminals
   draw_graphs $terminals
   draw_graphs $pragmas
   draw_graphs $ignore_symbols
+  draw_graphs $extensions
   draw_graphs $legend
 } ;# end draw_all_graphs
 
