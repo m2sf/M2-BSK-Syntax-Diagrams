@@ -350,7 +350,7 @@ lappend non_terminals pointerType {
 
 # (18) Procedure Type
 lappend non_terminals procedureType {
-  line PROCEDURE {optx ( {loop formalType ,} )} {optx : returnedType}
+  line PROCEDURE {optx ( {loop formalType ;} )} {optx : returnedType}
 }
 
 # (18.1) Formal Type
