@@ -209,10 +209,15 @@ lappend non_terminals definition {
 
 # (6) Constant Definition
 lappend non_terminals constDefinition {
-  line {optx [ {or /COLLATION /TLIMIT} ]} ident = constExpression
+  line {optx [ {or /COLLATION /TLIMIT} ]} simpleConstDefinition
 }
 
-# (6.1) Constant Expression
+# (6.1) Simple Constant Definition
+lappend non_terminals simpleConstDefinition {
+  line ident {optx : typeIdent} = constExpression
+}
+
+# (6.2) Constant Expression
 lappend non_terminals constExpression {
   line expression
 }
@@ -473,49 +478,18 @@ lappend non_terminals possiblyEmptyBlock {
 lappend non_terminals declaration {
   line {
     or
-      {line ALIAS {loop {line aliasDeclaration ;} nil}}
-      {line CONST {loop {line ident = constExpression ;} nil}}
+      {line CONST {loop {line constDeclaration ;} nil}}
       {line TYPE {loop {line typeDeclaration ;} nil}}
       {line VAR {loop {line varDeclaration ;} nil}}
       {line procedureHeader ; block ident ;}
+      {line aliasDeclaration ;}
       {line toDoList ;}
   }
 }
 
-# (33.1) Alias Declaration
-lappend non_terminals aliasDeclaration {
-  or
-    namedAliasDecl
-    wildcardAliasDecl
-}
-
-# (33.2) Named Alias Declaration
-lappend non_terminals namedAliasDecl {
-  line aliasName {
-    or
-      {line {loop {line , aliasName} nil} = qualifiedWildcard}
-      {line = qualifiedName}
-    }
-}
-
-# (33.3) Alias Name
-lappend non_terminals aliasName {
-  line ident
-}
-
-# (33.4) Qualified Name
-lappend non_terminals qualifiedName {
-  line qualident
-}
-
-# (33.5) Qualified Wildcard
-lappend non_terminals qualifiedWildcard {
-  line qualident .*
-}
-
-# (33.6) Wildcard Alias Declaration
-lappend non_terminals wildcardAliasDecl {
-  line * = qualifiedWildcard
+# (33.1) Constant Declaration
+lappend non_terminals constDeclaration {
+  line simpleConstDefinition
 }
 
 # (34) Type Declaration
@@ -565,12 +539,27 @@ lappend non_terminals varDeclaration {
   }
 }
 
-# (36) Statement Sequence
+# (36) Alias Declaration
+lappend non_terminals aliasDeclaration {
+  line UNQUALIFIED {loop nameSelector ,}
+}
+
+# (36.1) Name Selector
+lappend non_terminals nameSelector {
+  line qualident {optx wildcard}
+}
+
+# (36.2) Wildcard
+lappend non_terminals wildcard {
+  line .*
+}
+
+# (37) Statement Sequence
 lappend non_terminals statementSequence {
   loop statement ;
 }
 
-# (37) Statement
+# (38) Statement
 lappend non_terminals statement {
   line {
     or
@@ -592,7 +581,7 @@ lappend non_terminals statement {
   }
 }
 
-# (38) Memory Management Operation
+# (39) Memory Management Operation
 lappend non_terminals memMgtOperation {
   or
     newStatement
@@ -600,7 +589,7 @@ lappend non_terminals memMgtOperation {
     releaseStatement
 }
 
-# (38.1) NEW Statement
+# (39.1) NEW Statement
 lappend non_terminals newStatement {
   line NEW designator {
     or
@@ -610,17 +599,17 @@ lappend non_terminals newStatement {
   }
 }
 
-# (38.2) RETAIN Statement
+# (39.2) RETAIN Statement
 lappend non_terminals retainStatement {
   line RETAIN designator
 }
 
-# (38.3) RELEASE Statement
+# (39.3) RELEASE Statement
 lappend non_terminals releaseStatement {
   line RELEASE designator
 }
 
-# (39) Update Or Procedure Call
+# (40) Update Or Procedure Call
 lappend non_terminals updateOrProcCall {
   line targetDesignator {
     or
@@ -631,66 +620,66 @@ lappend non_terminals updateOrProcCall {
     }
 }
 
-# (39.1) Increment Or Decrement Suffix
+# (40.1) Increment Or Decrement Suffix
 lappend non_terminals incOrDecSuffix {
   or
     {line ++}
     {line --}
 }
 
-# (40) RETURN Statement
+# (41) RETURN Statement
 lappend non_terminals returnStatement {
   line RETURN {optx expression}
 }
 
-# (41) COPY Statement
+# (42) COPY Statement
 lappend non_terminals copyStatement {
   line COPY targetDesignator := expression
 }
 
-# (42) READ Statement
+# (43) READ Statement
 lappend non_terminals readStatement {
   line READ {optx @ chan :}
   {loop inputArg ,}
 }
 
-# (42.1) Channel
+# (43.1) Channel
 lappend non_terminals chan {
   line designator
 }
 
-# (42.2) Input Arguments
+# (43.2) Input Arguments
 lappend non_terminals inputArg {
   line {optx NEW} designator
 }
 
-# (43) WRITE Statement
+# (44) WRITE Statement
 lappend non_terminals writeStatement {
   line WRITE {optx @ chan :}
   {loop outputArgs ,}
 }
 
-# 43.1) Output Arguments
+# 44.1) Output Arguments
 lappend non_terminals outputArgs {
   or formattedArgs unformattedArg
 }
 
-# (43.2) Formatted Output Arguments
+# (44.2) Formatted Output Arguments
 lappend non_terminals formattedArgs {
   line OCTOTHORPE ( fmtStr , expressionList )
 }
 
-# (43.3) Unformatted Argument
+# (44.3) Unformatted Argument
 lappend non_terminals unformattedArg {
   line expression
 }
 
-# (43.4) Format String
+# (44.4) Format String
 lappend non_terminals fmtStr {
   line expression
 }
 
-# (44) IF Statement
+# (45) IF Statement
 lappend non_terminals ifStatement {
   stack
     {line IF boolExpression THEN statementSequence}
@@ -698,145 +687,145 @@ lappend non_terminals ifStatement {
     {line {optx ELSE statementSequence} END}
 }
 
-# (44.1) Boolean Expression
+# (45.1) Boolean Expression
 lappend non_terminals boolExpression {
   line expression
 }
 
-# (45) CASE Statement
+# (46) CASE Statement
 lappend non_terminals caseStatement {
   line CASE expression OF
     {loop {line | case} nil} {optx ELSE statementSequence} END
 }
 
-# (45) CASE Statement 2
+# (46) CASE Statement (wrapped)
 lappend non_terminals caseStatement2 {
   stack
     {line CASE expression OF {loop {line | case} nil}}
     {line {optx ELSE statementSequence} END}
 }
 
-# (45.1) Case
+# (46.1) Case
 lappend non_terminals case {
   line {loop caseLabels ,} : statementSequence
 }
 
-# (45.2) Case Labels
+# (46.2) Case Labels
 lappend non_terminals caseLabels {
   line constExpression {optx .. constExpression}
 }
 
-# (46) LOOP Statement
+# (47) LOOP Statement
 lappend non_terminals loopStatement {
   line LOOP statementSequence END
 }
 
-# (47) WHILE Statement
+# (48) WHILE Statement
 lappend non_terminals whileStatement {
   line WHILE boolExpression DO statementSequence END
 }
 
-# (47) WHILE Statement (wrapped)
+# (48) WHILE Statement (wrapped)
 lappend non_terminals whileStatement2 {
   stack
     {line WHILE boolExpression DO statementSequence}
     {line {optx ELSE statementSequence} END}
 }
 
-# (48) REPEAT Statement
+# (49) REPEAT Statement
 lappend non_terminals repeatStatement {
   line REPEAT statementSequence UNTIL boolExpression
 }
 
-# (49) FOR Statement
+# (50) FOR Statement
 lappend non_terminals forStatement {
   line FOR forLoopVariants IN iterableExpr DO statementSequence END
 }
 
-# (49) FOR Statement (wrapped)
+# (50) FOR Statement (wrapped)
 lappend non_terminals forStatement2 {
   stack
     {line FOR forLoopVariants IN iterableExpr}
     {line DO statementSequence END}
 }
 
-# (49.1) FOR Loop Variants
+# (50.1) FOR Loop Variants
 lappend non_terminals forLoopVariants {
   line accessor {optx descender} {optx , value}
 }
 
-# (49.2) Accessor, Value
+# (50.2) Accessor, Value
 lappend non_terminals accessor {
   line StdIdent
 }
 
-# (49.3) Descender
+# (50.3) Descender
 lappend non_terminals descender {
   line --
 }
 
-# (49.4) Iterable Expression
+# (50.4) Iterable Expression
 lappend non_terminals iterableExpr {
   or
     {line ordinalRange OF ordinalType}
     designator
 }
 
-# (49.5) Ordinal Range
+# (50.5) Ordinal Range
 lappend non_terminals ordinalRange {
   line [ firstValue .. lastValue ]
 }
 
-# (49.6) First Value
+# (50.6) First Value
 lappend non_terminals firstValue {
   line expression
 }
 
-# (49.7) Last Value
+# (50.7) Last Value
 lappend non_terminals lastValue {
   line expression
 }
 
-# (49.8) Ordinal Type
+# (50.8) Ordinal Type
 lappend non_terminals ordinalType {
   line typeIdent
 }
 
-# (50a) Designator
+# (51a) Designator
 lappend non_terminals designator {
   line ident {optx designatorTail}
 }
 
-# (50b) Target Designator
+# (51b) Target Designator
 lappend non_terminals targetDesignator {
   line ident {optx targetDesignatorTail}
 }
 
-# (50a.1) Designator Tail
+# (51a.1) Designator Tail
 lappend non_terminals designatorTail {
   or
     {line {or deref fieldSelector} {optx designatorTail}}
     subscriptOrSlice
 }
 
-# (50b.1) Target Designator Tail
+# (51b.1) Target Designator Tail
 lappend non_terminals targetDesignatorTail {
   or
     {line {or deref fieldSelector} {optx targetDesignatorTail}}
     subscriptOrSliceOrInsert
 }
 
-# (50.2) Deref
+# (51.2) Deref
 lappend non_terminals deref {
   line ^
 }
 
-# (50.3) Field Selector
+# (51.3) Field Selector
 lappend non_terminals fieldSelector {
   line . ident
 }
 
-# (50.5) Subscript Or Slice
+# (51.4) Subscript Or Slice
 lappend non_terminals subscriptOrSlice {
   line [ expression {
     or
@@ -845,7 +834,7 @@ lappend non_terminals subscriptOrSlice {
     }
 }
 
-# (50.6) Subscript Or Slice Or Insert
+# (51.5) Subscript Or Slice Or Insert
 lappend non_terminals subscriptOrSliceOrInsert {
   line [ expression {
     or
@@ -854,70 +843,70 @@ lappend non_terminals subscriptOrSliceOrInsert {
     }
 }
 
-# (51) Expression List
+# (52) Expression List
 lappend non_terminals expressionList {
   loop expression ,
 }
 
-# (52) Expression
+# (53) Expression
 lappend non_terminals expression {
   line simpleExpression {optx operL1 simpleExpression}
 }
 
-# (52.1) Level-1 Operator
+# (53.1) Level-1 Operator
 lappend non_terminals operL1 {
   or
     = # < <= > >= == IN
 }
 
-# (53) Simple Expression
+# (54) Simple Expression
 lappend non_terminals simpleExpression {
   or
     {loop term operL2}
     {line - factor}
 }
 
-# (53.1) Level-2 Operator
+# (54.1) Level-2 Operator
 lappend non_terminals operL2 {
   or + - OR concatOp setDiffOp
 }
 
-# (53.2) Concatenation Operator
+# (54.2) Concatenation Operator
 lappend non_terminals concatOp {
   line &
 }
 
-# (53.3) Set Difference Operator
+# (54.3) Set Difference Operator
 lappend non_terminals setDiffOp {
   line BACKSLASH
 }
 
-# (54) Term
+# (55) Term
 lappend non_terminals term {
   loop simpleTerm operL3
 }
 
-# (54.1) Level-3 Operator
+# (55.1) Level-3 Operator
 lappend non_terminals operL3 {
   or * / DIV MOD AND
 }
 
-# (55) Simple Term
+# (56) Simple Term
 lappend non_terminals simpleTerm {
   line {optx NOT} factor
 }
 
-# (56) Factor
+# (57) Factor
 lappend non_terminals factor {
   line simpleFactor {optx typeConvOp typeIdent}
 }
 
-# (56.1) Type Conversion Operator
+# (57.1) Type Conversion Operator
 lappend non_terminals typeConvOp {
   line ::
 }
 
-# (57) Simple Factor
+# (58) Simple Factor
 lappend non_terminals simpleFactor {
   line {
     or
@@ -929,12 +918,12 @@ lappend non_terminals simpleFactor {
     }
 }
 
-# (57.1) Designator Or Function Call
+# (58.1) Designator Or Function Call
 lappend non_terminals designatorOrFuncCall {
   line designator {optx ( {optx expressionList} )}
 }
 
-# (57.2) Structured Value
+# (58.2) Structured Value
 lappend non_terminals structuredValue {
   line LBRACE {
     or
@@ -943,20 +932,20 @@ lappend non_terminals structuredValue {
     } RBRACE
 }
 
-# (57.3) Value Component
+# (58.3) Value Component
 lappend non_terminals valueComponent {
   or
     {line constExpression {optx .. constExpression}}
     {line runtimeExpression}
 }
 
-# (57.4) Runtime Expression
+# (58.4) Runtime Expression
 lappend non_terminals runtimeExpression {
   line expression
 }
 
 
-# (58) TO DO List
+# (59) TO DO List
 lappend non_terminals toDoList {
   line TO DO {
     or
@@ -965,32 +954,32 @@ lappend non_terminals toDoList {
     }
 }
 
-# (58.1) Tracking Reference
+# (59.1) Tracking Reference
 lappend non_terminals trackingRef {
   line ( issueId {optx , severity , description } )
 }
 
-# (58.2) Task To Do
+# (59.2) Task To Do
 lappend non_terminals taskToDo {
   line description {optx , estimatedTime timeUnit }
 }
 
-# (58.3) IssueId, Severity, Estimated Time
+# (59.3) IssueId, Severity, Estimated Time
 lappend non_terminals issueId {
   line wholeNumber
 }
 
-# (58.4) Time Unit
+# (59.4) Time Unit
 lappend non_terminals timeUnit {
   line StdIdent
 }
 
-# (58.5) Description
+# (59.5) Description
 lappend non_terminals description {
   line StringLiteral
 }
 
-# (58.3) Whole Number
+# (59.6) Whole Number
 lappend non_terminals wholeNumber {
   line NumberLiteral 
 }
