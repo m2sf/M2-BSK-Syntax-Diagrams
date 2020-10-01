@@ -209,15 +209,20 @@ lappend non_terminals definition {
 
 # (6) Constant Definition
 lappend non_terminals constDefinition {
-  line {optx [ {or /COLLATION /TLIMIT} ]} simpleConstDefinition
+  or constantBinding constDeclaration
 }
 
-# (6.1) Simple Constant Definition
-lappend non_terminals simpleConstDefinition {
+# (6.1) Constant Binding
+lappend non_terminals constantBinding {
+  line [ {or /COLLATION /TLIMIT} ] = constExpression
+}
+
+# (6.2) Constant Declaration
+lappend non_terminals constDeclaration {
   line ident {optx : typeIdent} = constExpression
 }
 
-# (6.2) Constant Expression
+# (6.3) Constant Expression
 lappend non_terminals constExpression {
   line expression
 }
@@ -231,7 +236,6 @@ lappend non_terminals ident {
 lappend non_terminals typeDefinition {
   line ident = {
     or
-      OPAQUE
       aliasType
       derivedType
       subrangeType
@@ -240,6 +244,7 @@ lappend non_terminals typeDefinition {
       arrayType
       recordType
       pointerType
+      opaqueType
       procedureType
   }
 }
@@ -256,7 +261,7 @@ lappend non_terminals typeIdent {
 
 # (9.2) Qualified Identifier
 lappend non_terminals qualident {
-  loop ident .
+  or StdIdent Qualident
 }
 
 # (10) Derived Type
@@ -266,11 +271,11 @@ lappend non_terminals derivedType {
 
 # (11) Subrange Type
 lappend non_terminals subrangeType {
-  line range OF countableType
+  line constRange OF countableType
 }
 
 # (11.1) Range Expression
-lappend non_terminals range {
+lappend non_terminals constRange {
   line [ lowerBound .. upperBound ]
 }
 
@@ -331,7 +336,7 @@ lappend non_terminals recordType {
 
 # (15.1) Record Type To Extend
 lappend non_terminals recTypeToExtend {
-  or typeIdent /NIL
+  or /NIL typeIdent
 }
 
 # (15.2) Field List
@@ -342,7 +347,6 @@ lappend non_terminals fieldList {
       arrayType
       subrangeType
       procedureType
-      {line OCTETSEQ [ valueCount ]}
   }
 }
 
@@ -351,7 +355,15 @@ lappend non_terminals pointerType {
   line POINTER TO typeIdent
 }
 
-# (17) omitted
+# (17) Opaque Type
+lappend non_terminals opaqueType {
+  line OPAQUE {or {line [ allocSize ]} POINTER}
+}
+
+# (17.1) Allocation Size
+lappend non_terminals allocSize {
+  line constExpression
+}
 
 # (18) Procedure Type
 lappend non_terminals procedureType {
@@ -487,11 +499,6 @@ lappend non_terminals declaration {
   }
 }
 
-# (33.1) Constant Declaration
-lappend non_terminals constDeclaration {
-  line simpleConstDefinition
-}
-
 # (34) Type Declaration
 lappend non_terminals typeDeclaration {
   line ident = {
@@ -503,40 +510,45 @@ lappend non_terminals typeDeclaration {
       setType
       arrayType
       recordType
-      pointerOrIndeterminateType
+      octetSeqType
+      privatePointerType
       procedureType
   }
 }
 
-# (34.1) pointerOrIndeterminateType
-lappend non_terminals pointerOrIndeterminateType {
-  line POINTER TO {or typeIdent indeterminateTarget}
+# (34.1) Octet Sequence Type
+lappend non_terminals octetSeqType {
+  line OCTETSEQ [ valueCount ]
 }
 
-# (34.2) Indeterminate Target
+# (34.2) Private Pointer Type
+lappend non_terminals privatePointerType {
+  line POINTER TO {or determinateTarget indeterminateTarget}
+}
+
+# (34.3) Determinate Target
+lappend non_terminals determinateTarget {
+  line typeIdent
+}
+
+# (34.4) Indeterminate Target
 lappend non_terminals indeterminateTarget {
   line RECORD {optx {loop {line fieldList ;}}} indeterminateField END
 }
 
-# (34.3) Indeterminate Field Declaration
+# (34.5) Indeterminate Field Declaration
 lappend non_terminals indeterminateField {
   line + ident : ARRAY capacityField OF typeIdent
 }
 
-# (34.4) Capacity Field
+# (34.6) Capacity Field
 lappend non_terminals capacityField {
   line ident
 }
 
 # (35) Variable Declaration
 lappend non_terminals varDeclaration {
-  line identList : {
-    or
-      typeIdent
-      arrayType
-      subrangeType
-      procedureType
-  }
+  line fieldList
 }
 
 # (36) Alias Declaration
@@ -609,16 +621,27 @@ lappend non_terminals releaseStatement {
   line RELEASE designator
 }
 
+
 # (40) Update Or Procedure Call
 lappend non_terminals updateOrProcCall {
-  line targetDesignator {
-    or
-      {line incOrDecSuffix}
-      {line := expression}
-      {line ( expressionList )}
-      nil
-    }
+  or
+    {line designator
+      {or incOrDecSuffix {line ( expressionList )} nil}}
+    {line targetDesignator := expression} 
 }
+
+# (40b) LL(1) Variant of Update Or Procedure Call
+#   resulting illegal combinations not in compliance
+#   with rule (40) must be rejected programmatically
+#lappend non_terminals updateOrProcCall {
+#  line targetDesignator {
+#    or
+#      {line incOrDecSuffix}
+#      {line := expression}
+#      {line ( expressionList )}
+#      nil
+#    }
+#}
 
 # (40.1) Increment Or Decrement Suffix
 lappend non_terminals incOrDecSuffix {
@@ -648,7 +671,7 @@ lappend non_terminals chan {
   line designator
 }
 
-# (43.2) Input Arguments
+# (43.2) Input Argument
 lappend non_terminals inputArg {
   line {optx NEW} designator
 }
@@ -664,7 +687,7 @@ lappend non_terminals outputArgs {
   or formattedArgs unformattedArg
 }
 
-# (44.2) Formatted Output Arguments
+# (44.2) Formatted Arguments
 lappend non_terminals formattedArgs {
   line OCTOTHORPE ( fmtStr , expressionList )
 }
@@ -766,81 +789,66 @@ lappend non_terminals descender {
 
 # (50.4) Iterable Expression
 lappend non_terminals iterableExpr {
-  or
-    {line ordinalRange OF ordinalType}
-    designator
+  line collectionOrType {optx valueRange}
 }
 
-# (50.5) Ordinal Range
-lappend non_terminals ordinalRange {
+# (50.5) Collection Or Type
+lappend non_terminals collectionOrType {
+  line qualident
+}
+
+# (50.6) Value Range
+lappend non_terminals valueRange {
   line [ firstValue .. lastValue ]
 }
 
-# (50.6) First Value
+# (50.7) First Value
 lappend non_terminals firstValue {
   line expression
 }
 
-# (50.7) Last Value
+# (50.8) Last Value
 lappend non_terminals lastValue {
   line expression
 }
 
-# (50.8) Ordinal Type
-lappend non_terminals ordinalType {
-  line typeIdent
-}
-
 # (51a) Designator
 lappend non_terminals designator {
-  line ident {optx designatorTail}
+  line qualident {or derefTail subscriptTail nil}
+}
+
+# (51a.1) Dereferenced Designator Tail
+lappend non_terminals derefTail {
+  line deref {or {line . designator} subscriptTail nil}
+}
+
+# (51a.2) Subscripted Designator Tail
+lappend non_terminals subscriptTail {
+  line [ expression ] {or {line . designator} derefTail nil}
 }
 
 # (51b) Target Designator
 lappend non_terminals targetDesignator {
-  line ident {optx targetDesignatorTail}
+  line qualident {or derefTargetTail bracketTargetTail nil}
 }
 
-# (51a.1) Designator Tail
-lappend non_terminals designatorTail {
-  or
-    {line {or deref fieldSelector} {optx designatorTail}}
-    subscriptOrSlice
+# (51b.1) Dereferenced Target Designator Tail
+lappend non_terminals derefTargetTail {
+  line deref {or {line . targetDesignator} bracketTargetTail nil}
 }
 
-# (51b.1) Target Designator Tail
-lappend non_terminals targetDesignatorTail {
-  or
-    {line {or deref fieldSelector} {optx targetDesignatorTail}}
-    subscriptOrSliceOrInsert
+# (51b.2) Bracketed Target Designator Tail
+lappend non_terminals bracketTargetTail {
+  line [ expression {
+    or 
+      {line ] {or {line . targetDesignator} derefTargetTail nil}}
+      {line .. {optx expression} ]}
+  }
 }
 
 # (51.2) Deref
 lappend non_terminals deref {
-  line ^
-}
-
-# (51.3) Field Selector
-lappend non_terminals fieldSelector {
-  line . ident
-}
-
-# (51.4) Subscript Or Slice
-lappend non_terminals subscriptOrSlice {
-  line [ expression {
-    or
-      {line ] {optx designatorTail}}
-      {line .. expression ]}
-    }
-}
-
-# (51.5) Subscript Or Slice Or Insert
-lappend non_terminals subscriptOrSliceOrInsert {
-  line [ expression {
-    or
-      {line ] {optx targetDesignatorTail}}
-      {line .. {optx expression} ]}
-    }
+  loop ^ nil
 }
 
 # (52) Expression List
@@ -913,17 +921,38 @@ lappend non_terminals simpleFactor {
       NumberLiteral
       StringLiteral
       structuredValue
-      designatorOrFuncCall
+      sourceDesignator
       {line ( expression )}
     }
 }
 
-# (58.1) Designator Or Function Call
-lappend non_terminals designatorOrFuncCall {
-  line designator {optx ( {optx expressionList} )}
+# (59) Source Designator
+lappend non_terminals sourceDesignator {
+  line qualident
+    {or functionCallTail derefSourceTail bracketSourceTail nil}
 }
 
-# (58.2) Structured Value
+# (59.1) Dereferenced Source Designator Tail
+lappend non_terminals derefSourceTail {
+  line deref
+    {or {line . sourceDesignator} functionCallTail bracketSourceTail nil}
+}
+
+# (59.2) Bracketed Source Designator Tail 
+lappend non_terminals bracketSourceTail {
+  line [ expression {
+    or 
+      {line ] {or {line . sourceDesignator} functionCallTail derefSourceTail nil}}
+      {line .. expression ]}
+  }
+}
+
+# (59.3) Function Call Tail
+lappend non_terminals functionCallTail {
+  line ( {optx expressionList} )
+}
+
+# (60) Structured Value
 lappend non_terminals structuredValue {
   line LBRACE {
     or
@@ -932,20 +961,20 @@ lappend non_terminals structuredValue {
     } RBRACE
 }
 
-# (58.3) Value Component
+# (60.1) Value Component
 lappend non_terminals valueComponent {
   or
     {line constExpression {optx .. constExpression}}
     {line runtimeExpression}
 }
 
-# (58.4) Runtime Expression
+# (60.2) Runtime Expression
 lappend non_terminals runtimeExpression {
   line expression
 }
 
 
-# (59) TO DO List
+# (61) TO DO List
 lappend non_terminals toDoList {
   line TO DO {
     or
@@ -954,32 +983,32 @@ lappend non_terminals toDoList {
     }
 }
 
-# (59.1) Tracking Reference
+# (61.1) Tracking Reference
 lappend non_terminals trackingRef {
   line ( issueId {optx , severity , description } )
 }
 
-# (59.2) Task To Do
+# (61.2) Task To Do
 lappend non_terminals taskToDo {
   line description {optx , estimatedTime timeUnit }
 }
 
-# (59.3) IssueId, Severity, Estimated Time
+# (61.3) IssueId, Severity, Estimated Time
 lappend non_terminals issueId {
   line wholeNumber
 }
 
-# (59.4) Time Unit
+# (61.4) Time Unit
 lappend non_terminals timeUnit {
   line StdIdent
 }
 
-# (59.5) Description
+# (61.5) Description
 lappend non_terminals description {
   line StringLiteral
 }
 
-# (59.6) Whole Number
+# (61.6) Whole Number
 lappend non_terminals wholeNumber {
   line NumberLiteral 
 }
@@ -1006,12 +1035,17 @@ lappend terminals LetterOrDigit {
   or Letter Digit
 }
 
-# (1.2) Pervasive
+# (1.2) Qualified Identifier
+lappend terminals Qualident {
+  loop StdIdent .
+}
+
+# (1.3) Pervasive
 lappend terminals Pervasive {
   line {loop {line A..Z} nil} {optx Digit} 
 }
 
-# (1.3) Primitive
+# (1.4) Primitive
 lappend terminals Primitive {
   line _ {loop {line A..Z} nil} 
 }
