@@ -27,10 +27,11 @@ grammar m2bsk;
 /* * *   R e s e r v e d   W o r d s   * * */
 
 reserved
-  ALIAS, AND, ARGLIST, ARRAY, BEGIN, CASE, CONST, COPY, DEFINITION, DIV, DO, ELSE,
-  ELSIF, END, EXIT, FOR, IF, IMPLEMENTATION, IMPORT, IN, LOOP, MOD, MODULE, NEW, NOP,
-  NOT, OCTETSEQ, OF, OPAQUE, OR, POINTER, PROCEDURE, READ, RECORD, RELEASE, REPEAT
-  RETAIN, RETURN, SET, THEN, TO, TYPE, UNQUALIFIED, UNTIL, VAR, WHILE, WRITE;
+  ALIAS, AND, ARGLIST, ARRAY, BEGIN, CASE, CONST, COPY, DEFINITION, DIV, DO,
+  ELSE, ELSIF, END, EXIT, FOR, IF, IMPLEMENTATION, IMPORT, IN, LOOP, MOD,
+  MODULE, NEW, NOP, NOT, OCTETSEQ, OF, OPAQUE, OR, POINTER, PROCEDURE, READ,
+  RECORD, RELEASE, REPEAT RETAIN, RETURN, SET, THEN, TO, TYPE, UNQUALIFIED,
+  UNTIL, VAR, WHILE, WRITE;
 
 /* ADDRESS, CAPACITY, CAST and NIL are Schroedinger's Tokens */
 
@@ -85,15 +86,24 @@ definition :=
 /* Constant Definition */
 
 constDefinition :=
-  ( '[' ( COLLATION | TLIMIT ) ']' )? simpleConstDefinition ;
+  constBinding | constDeclaration
+  ;
+  
+constBinding :=
+  '[' ( COLLATION | TLIMIT ) ']' '=' constExpression ;
 
-simpleConstDefinition :=
+
+/* Constant Declaration */
+
+constDeclaration :=
   ident ( ':' typeIdent )? '=' constExpression
   ;
+
 
 /* Identifier */
 
 alias ident = StdIdent ;
+
 
 /* Constant Expression */
 
@@ -104,8 +114,8 @@ alias constExpression = expression ;
 
 typeDefinition :=
   ident '='
-    ( OPAQUE | aliasType | derivedType | subrangeType | enumType | setType |
-      arrayType | recordType | pointerType | procedureType )
+    ( aliasType | derivedType | subrangeType | enumType | setType |
+      arrayType | recordType | pointerType | opaqueType | procedureType )
   ;
 
 
@@ -123,7 +133,7 @@ alias typeIdent = qualident ;
 /* Qualified Identifier */
 
 qualident :=
-  ident ( '.' ident )*
+  StdIdent | Qualident
   ;
 
 
@@ -135,12 +145,12 @@ alias derivedType = typeIdent ;
 /* Subrange Type */
 
 subrangeType :=
-  range OF countableType
+  constRange OF countableType
   ;
 
-/* Range */
+/* Constant Range */
 
-range :=
+constRange :=
   '[' lowerBound '..' upperBound ']'
   ;
 
@@ -175,7 +185,7 @@ alias enumTypeIdent = typeIdent ;
 /* Identifier List */
 
 identList :=
-  ident ( ',' ident )*
+  StdIdent ( ',' StdIdent )*
   ;
 
 
@@ -205,18 +215,17 @@ recordType :=
   ;
 
 
-/* Field List */
-
-fieldList :=
-  identList ':'
-    ( typeIdent | arrayType | subrangeType | procedureType |
-      OCTETSEQ '[' valueCount ']' ) ;
-
-
 /* Record Type To Extend */
 
 recTypeToExtend :=
   typeIdent | NIL
+  ;
+
+
+/* Field List */
+
+fieldList :=
+  identList ':' ( typeIdent | arrayType | subrangeType | procedureType )
   ;
 
 
@@ -225,6 +234,16 @@ recTypeToExtend :=
 pointerType :=
   POINTER TO typeIdent
   ;
+
+
+/* Opaque Type */
+opaqueType :=
+  OPAQUE ( '[' allocSize ']' | POINTER )?
+  ;
+
+/* Allocation Size */
+
+alias allocSize = constExpression ;
 
 
 /* Procedure Type */
@@ -277,14 +296,15 @@ variadicFormalType :=
 /* Procedure Header */
 
 procedureHeader :=
-  PROCEDURE ( '[' bindingSpecifier ']')? procedureSignature
+  PROCEDURE ( '[' bindingSpecifier ']' )? procedureSignature
   ;
   
 /* Binding Specifier */
 
 bindingSpecifier :=
   NEW ( argListFlag | capacityFlag )? | RETAIN | RELEASE |
-  READ allocFlag? | WRITE formatFlag? | bindableIdent ;
+  READ allocFlag? | WRITE formatFlag? | bindableIdent
+  ;
 
 /* Flags */
 
@@ -299,12 +319,14 @@ alias formatFlag = '#' ;
 
 /* Bindable Identifier */
 
-bindableIdent := Pervasive | Primitive ;
+.bindableIdent :=
+  Pervasive | Primitive
+  ;
 
 
 /* Procedure Signature */
 
-procedureSignature :=
+.procedureSignature :=
   ident ( '(' formalParams ( ';' formalParams )* ')' )? ( ':' returnedType )?
   ;
 
@@ -360,7 +382,7 @@ possiblyEmptyBlock :=
 /* Declaration */
 
 declaration :=
-  CONST ( ident '=' constExpression ';' )+ |
+  CONST ( constDeclaration ';' )+ |
   TYPE ( typeDeclaration ';' )+ |
   VAR ( varDeclaration ';' )+ |
   procedureHeader ';' block ident ';' |
@@ -368,31 +390,33 @@ declaration :=
   toDoList ';'
   ;
 
-
-/* Constant Declaration */
-
-alias constDeclaration = simpleConstDefinition ;
-
-
-/* Constant Expression */
-
-alias constExpression = expression ;
-
-
 /* Type Declaration */
 
 typeDeclaration :=
   ident '='
     ( aliasType | derivedType | subrangeType | enumType | setType |
-      arrayType | recordType | pointerOrIndeterminateType | procedureType )
+      arrayType | recordType | octetSeqType | privatePointerType |
+      procedureType )
   ;
 
 
-/* Pointer Or Indeterminate Type */
+/* Octet Sequence Type */
 
-pointerOrIndeterminateType :=
-  POINTER TO ( typeIdent | indeterminateTarget )
+octetSeqType :=
+  OCTETSEQ '[' valueCount ']'
   ;
+
+
+/* Private Pointer Type */
+
+privatePointerType :=
+  POINTER TO ( determinateTarget | indeterminateTarget )
+  ;
+
+/* Determinate Target */
+
+alias determinateTarget = typeIdent ;
+
 
 /* Indeterminate Target */
 
@@ -413,9 +437,7 @@ alias capacityField = ident ;
 
 /* Variable Declaration */
 
-varDeclaration :=
-  identList ':' ( typeIdent | arrayType | subrange Type | procedureType )
-  ;
+alias varDeclaration = fieldList ;
 
 
 /* Alias Declaration */
@@ -454,7 +476,7 @@ statement :=
 
 /* Memory Management Operation */
 
-memMgtOperation :=
+.memMgtOperation :=
   newStatement | retainStatement | releaseStatement
   ;
 
@@ -474,7 +496,8 @@ releaseStatement :=
 /* Update Or Procedure Call */
 
 updateOrProcCall :=
-  targetDesignator ( IncOrDecSuffix | ':=' expression | '(' expressionList ')' )?
+  designator ( IncOrDecSuffix | '(' expressionList ')' )? |
+  targetDesignator -> ':=' expression
   ;
 
 /* Increment Or Decrement Suffix */
@@ -482,7 +505,7 @@ updateOrProcCall :=
 .IncOrDecSuffix := '++' | '--' ;
 
 
-/* RETURN Or YIELD Statement */
+/* RETURN or YIELD Statement */
 
 returnStatement :=
   RETURN expression?
@@ -528,7 +551,7 @@ outputArgs :=
 /* Formatted Arguments */
 
 formattedArgs :=
-  '#' '(' fmtStr, unformattedArgs ')'
+  '#' '(' fmtStr, unformattedArg ')'
   ;
 
 /* Format String */
@@ -619,12 +642,17 @@ alias descender = '--' ;
 /* Iterable Expression */
 
 iterableExpr :=
-  ordinalRange OF ordinalType | designator
+  collectionOrType valueRange?
   ;
 
-/* Ordinal Range */
+/* Collection or Type */
 
-ordinalRange :=
+alias collectionOrType = qualident ;
+
+
+/* Value Range */
+
+valueRange :=
   '[' firstValue '..' lastValue ']'
   ;
 
@@ -632,57 +660,54 @@ ordinalRange :=
 
 alias firstValue, lastValue = expression ;
 
-/* Ordinal Type */
-
-alias ordinalType = typeIdent ;
-
 
 /* Designator */
 
 designator :=
-  ident designatorTail?
+  qualident ( derefTail | subscriptTail )?
   ;
 
-/* Designator Tail */
 
-designatorTail :=
-  ( deref | fieldSelector ) designatorTail? | subscriptOrSlice
+/* Dereferenced Designator Tail */
+
+derefTail :=
+  deref ( '.' designator | subscriptTail )?
   ;
+  
+  
+/* Subscripted Designator Tail */
 
-/* Subscript Or Slice */
-
-subscriptOrSlice :=
-  '[' expression ( ']' designatorTail? | '..' expression ']' )
+subscriptTail :=
+  '[' expression ']' ( '.' designator | derefTail )?
   ;
 
 
 /* Target Designator */
 
 targetDesignator :=
-  ident targetDesignatorTail?
+  qualident ( derefTargetTail | bracketTargetTail )?
   ;
 
-/* Target Designator Tail */
 
-targetDesignatorTail :=
-  ( deref | fieldSelector ) designatorTail? | subscriptOrSliceOrInsert
+/* Dereferenced Target Designator Tail */
+
+derefTargetTail :=
+  deref ( '.' targetDesignator | bracketTargetTail )?
   ;
 
-/* Subscript Or Slice Or Insert */
 
-subscriptOrSliceOrInsert :=
-  '[' expression ( ']' designatorTail? | '..' expression? ']' )
+/* Bracketed Target Designator Tail */
+
+bracketTargetTail :=
+  '[' expression
+  ( ']' ( '.' targetDesignator | derefTargetTail )? | '..' expression? ']' )?
   ;
-
+  
 
 /* Dereference */
 
-alias deref := '^' ;
-
-/* Field Selector */
-
-fieldSelector :=
-  '.' ident
+deref := 
+  ( '^' )+
   ;
 
 
@@ -762,14 +787,38 @@ alias TypeConvOp = '::' ;
 
 simpleFactor :=
   NumberLiteral | StringLiteral |
-  structuredValue | designatorOrFuncCall | '(' expression ')'
+  structuredValue | sourceDesignator | '(' expression ')'
   ;
 
-/* Designator Or Function Call */
+/* Source Designator */
 
-designatorOrFuncCall :=
-  designator ( '(' expressionList? ')' )?
+sourceDesignator :=
+  qualident ( functionCallTail | derefSourceTail | bracketSourceTail )?
   ;
+
+
+/* Function Call Tail */
+
+functionCallTail :=
+  '(' expressionList? ')'
+  ;
+
+
+/* Dereferenced Source Designator Tail */
+
+derefSourceTail :=
+  deref ( '.' sourceDesignator | functionCallTail | bracketSourceTail )?
+  ;
+
+
+/* Bracketed Source Designator Tail */
+
+bracketSourceTail :=
+  '[' expression
+  ( ']' ( '.' sourceDesignator | functionCallTail | derefSourceTail )? |
+    '..' expression ']' )?
+  ;
+
 
 /* Structured Value */
  structuredValue :=
@@ -840,6 +889,13 @@ StdIdent :=
 /* Letter Or Digit */
 
 .LetterOrDigit := Letter | Digit ;
+
+
+/* Qualified Identifier */
+
+Qualident :=
+  StdIdent ( '.' StdIdent )*
+  ;
 
 
 /* Pervasive */
